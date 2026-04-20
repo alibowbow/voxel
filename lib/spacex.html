@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>복셀 스페이스X 로켓 발사장</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --hot: #ff6b2d;
+      --cyan: #8df7ff;
+      --ink: #07111f;
+      --panel: rgba(8, 18, 30, .72);
+    }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 78% 15%, rgba(255, 249, 207, .95) 0 7%, rgba(255, 249, 207, 0) 20%),
+        linear-gradient(180deg, #86d9ff 0%, #bfeeff 58%, #f6d79f 100%);
+      font-family: 'Noto Sans KR', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,.10), transparent 36%);
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    #loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #07111f;
+      color: white;
+      z-index: 999;
+      transition: opacity .8s ease, visibility .8s ease;
+    }
+
+    .loader-cubes {
+      display: grid;
+      grid-template-columns: repeat(3, 18px);
+      gap: 8px;
+      margin-bottom: 26px;
+      transform: rotate(45deg);
+    }
+
+    .loader-cubes i {
+      width: 18px;
+      height: 18px;
+      background: var(--hot);
+      box-shadow: 0 0 18px rgba(255,107,45,.7);
+      animation: burn 1.05s infinite ease-in-out;
+      border-radius: 3px;
+    }
+    .loader-cubes i:nth-child(2) { animation-delay: .08s; background: #ffe478; }
+    .loader-cubes i:nth-child(3) { animation-delay: .16s; background: #ffffff; }
+    .loader-cubes i:nth-child(4) { animation-delay: .24s; background: #87f7ff; }
+    .loader-cubes i:nth-child(5) { animation-delay: .32s; }
+    .loader-cubes i:nth-child(6) { animation-delay: .40s; background: #ffe478; }
+    .loader-cubes i:nth-child(7) { animation-delay: .48s; background: #ffffff; }
+    .loader-cubes i:nth-child(8) { animation-delay: .56s; background: #87f7ff; }
+    .loader-cubes i:nth-child(9) { animation-delay: .64s; }
+
+    @keyframes burn {
+      0%, 100% { transform: translateY(0) scale(1); opacity: .5; }
+      50% { transform: translateY(-14px) scale(1.15); opacity: 1; }
+    }
+
+    #loader h1 {
+      margin: 0;
+      font-size: clamp(22px, 4vw, 40px);
+      font-weight: 900;
+      letter-spacing: .08em;
+    }
+
+    #loader p {
+      margin: 8px 0 0;
+      color: #9db0c3;
+      font-size: 12px;
+    }
+
+    #hud {
+      position: fixed;
+      left: 14px;
+      bottom: 14px;
+      z-index: 5;
+      width: min(250px, calc(100vw - 28px));
+      color: white;
+      background: rgba(8, 18, 30, .58);
+      border: 1px solid rgba(255,255,255,.18);
+      box-shadow: 0 14px 36px rgba(0,0,0,.26);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border-radius: 12px;
+      padding: 10px 12px 9px;
+      transform: translateY(10px);
+      opacity: 0;
+      animation: hudUp .7s cubic-bezier(.2,.8,.2,1) .6s forwards;
+    }
+
+    @keyframes hudUp { to { transform: translateY(0); opacity: 1; } }
+
+    .title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .title b {
+      color: var(--hot);
+      text-shadow: 0 0 10px rgba(255,107,45,.28);
+    }
+
+    .readouts {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 7px;
+    }
+
+    .readout {
+      flex: 1;
+      min-width: 0;
+      padding: 6px 7px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.09);
+      border: 1px solid rgba(255,255,255,.1);
+    }
+
+    .readout small {
+      display: block;
+      color: #b7cce0;
+      font-size: 8px;
+      line-height: 1;
+      margin-bottom: 3px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .readout span {
+      display: block;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .progress-shell {
+      height: 4px;
+      margin-top: 7px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255,255,255,.16);
+    }
+
+    #progress {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), #fff173, var(--hot));
+      box-shadow: 0 0 14px rgba(255,107,45,.35);
+    }
+
+    .controls {
+      margin-top: 6px;
+      color: #d8e7f3;
+      font-size: 10px;
+      line-height: 1.25;
+      opacity: .9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #corner {
+      position: fixed;
+      right: 14px;
+      top: 14px;
+      z-index: 6;
+      color: white;
+      padding: 6px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(6, 17, 31, .45);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      font-size: 10px;
+      box-shadow: 0 10px 28px rgba(0,0,0,.18);
+    }
+
+    #corner b { color: #fff173; }
+
+    @media (max-width: 640px) {
+      #hud { left: 10px; bottom: 10px; width: min(230px, calc(100vw - 20px)); }
+      #corner { right: 10px; top: 10px; }
+    }
+  </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="loader">
+    <div class="loader-cubes" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+    <h1>LOADING</h1>
+    <p>VOXEL LAUNCH PAD</p>
+  </div>
+
+  <div id="stage" aria-label="움직이는 스페이스X 스타일 로켓 발사장 복셀 디오라마"></div>
+
+  <aside id="hud">
+    <h1 class="title">SPACE X<br><b>LAUNCH PAD</b></h1>
+    <div class="readouts">
+      <div class="readout"><small>TIMER</small><span id="countdown">T-05</span></div>
+      <div class="readout"><small>STATUS</small><span id="phase">대기</span></div>
+    </div>
+    <div class="progress-shell"><div id="progress"></div></div>
+    <div class="controls">Drag · Wheel · Space · R</div>
+  </aside>
+
+  <div id="corner">LIVE</div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ==========================================
+    // 1. 기본 씬
+    // ==========================================
+    const stage = document.getElementById('stage');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x9ee7ff);
+    // 맑은 날처럼 멀리까지 또렷하게 보이도록 안개를 제거했습니다.
+    scene.fog = null;
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1300);
+    camera.position.set(-92, 70, 112);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.18;
+    stage.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 32, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.055;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.45;
+    controls.minDistance = 34;
+    controls.maxDistance = 420;
+    controls.maxPolarAngle = Math.PI / 2 + 0.06;
+
+    // ==========================================
+    // 2. 조명
+    // ==========================================
+    scene.add(new THREE.HemisphereLight(0xdaf5ff, 0xc7b58a, 1.45));
+
+    const sun = new THREE.DirectionalLight(0xffffff, 3.0);
+    sun.position.set(-70, 135, 95);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(4096, 4096);
+    const sd = 145;
+    sun.shadow.camera.left = -sd;
+    sun.shadow.camera.right = sd;
+    sun.shadow.camera.top = sd;
+    sun.shadow.camera.bottom = -sd;
+    sun.shadow.camera.near = 2;
+    sun.shadow.camera.far = 420;
+    sun.shadow.bias = -0.00035;
+    scene.add(sun);
+
+    const rim = new THREE.DirectionalLight(0xbdf6ff, 0.72);
+    rim.position.set(90, 35, -120);
+    scene.add(rim);
+
+    const ignitionLight = new THREE.PointLight(0xff7a22, 0, 80, 2);
+    ignitionLight.position.set(0, 10, 0);
+    scene.add(ignitionLight);
+
+    // ==========================================
+    // 3. 재료/복셀 도구
+    // ==========================================
+    const P = {
+      skyGlow: 0xffd394,
+      sand: 0xcda46c,
+      sand2: 0xa9845a,
+      scrub: 0x7f9a57,
+      scrubDark: 0x4f6d3a,
+      concrete: 0x8e969f,
+      concreteDark: 0x606a73,
+      steel: 0xaab3bc,
+      steelDark: 0x59636d,
+      steelDeep: 0x303943,
+      white: 0xf4f8fb,
+      white2: 0xdde5eb,
+      tile: 0x151a20,
+      black: 0x05080d,
+      window: 0x78eaff,
+      red: 0xe84533,
+      orange: 0xff7a20,
+      yellow: 0xfff071,
+      blueFire: 0x80f4ff,
+      smoke: 0xb7bcc1,
+      smokeDark: 0x7e858c,
+      ocean: 0x174c69,
+      oceanLight: 0x2c8bac,
+      water: 0x56b3d1,
+      grass: 0x7ab65d,
+      road: 0x29313a,
+      mark: 0xf7f1d2,
+      warning: 0xffd44d,
+      glass: 0x70e7ff,
+      emissiveGreen: 0x6aff9d
+    };
+
+    const materialCache = new Map();
+    function getMaterial(color, opts = {}) {
+      const key = [color, opts.opacity ?? 1, opts.emissive ?? 0x000000, opts.emissiveIntensity ?? 0, opts.metalness ?? 0.05, opts.roughness ?? 0.72].join('|');
+      if (!materialCache.has(key)) {
+        const mat = new THREE.MeshStandardMaterial({
+          color,
+          roughness: opts.roughness ?? 0.72,
+          metalness: opts.metalness ?? 0.05,
+          emissive: opts.emissive ?? 0x000000,
+          emissiveIntensity: opts.emissiveIntensity ?? 0,
+          transparent: (opts.opacity ?? 1) < 1,
+          opacity: opts.opacity ?? 1,
+          depthWrite: (opts.opacity ?? 1) > 0.7
+        });
+        materialCache.set(key, mat);
+      }
+      return materialCache.get(key);
+    }
+
+    class VoxelBuilder {
+      constructor() {
+        this.voxels = new Map();
+      }
+
+      add(x, y, z, color) {
+        const vx = Math.round(x), vy = Math.round(y), vz = Math.round(z);
+        this.voxels.set(`${vx},${vy},${vz}`, color);
+      }
+
+      box(x1, y1, z1, x2, y2, z2, color) {
+        const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+        const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+        const minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
+        for (let x = minX; x <= maxX; x++)
+          for (let y = minY; y <= maxY; y++)
+            for (let z = minZ; z <= maxZ; z++) this.add(x, y, z, color);
+      }
+
+      sphere(cx, cy, cz, r, color) {
+        const b = Math.ceil(r);
+        const rr = r * r;
+        for (let x = -b; x <= b; x++)
+          for (let y = -b; y <= b; y++)
+            for (let z = -b; z <= b; z++)
+              if (x*x + y*y + z*z <= rr) this.add(cx + x, cy + y, cz + z, color);
+      }
+
+      ellipsoid(cx, cy, cz, rx, ry, rz, color) {
+        for (let x = -rx; x <= rx; x++)
+          for (let y = -ry; y <= ry; y++)
+            for (let z = -rz; z <= rz; z++)
+              if ((x*x)/(rx*rx) + (y*y)/(ry*ry) + (z*z)/(rz*rz) <= 1) this.add(cx + x, cy + y, cz + z, color);
+      }
+
+      cylinderY(cx, y1, y2, cz, r, color, surfaceOnly = false) {
+        const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+        const b = Math.ceil(r);
+        const rr = r * r;
+        const inner = Math.max(0, r - 1.2);
+        const ii = inner * inner;
+        for (let y = minY; y <= maxY; y++) {
+          for (let x = -b; x <= b; x++) {
+            for (let z = -b; z <= b; z++) {
+              const d = x*x + z*z;
+              if (d <= rr && (!surfaceOnly || d >= ii || y === minY || y === maxY)) this.add(cx + x, y, cz + z, color);
+            }
+          }
+        }
+      }
+
+      cylinderZ(cx, cy, z1, z2, r, color) {
+        const minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
+        const b = Math.ceil(r);
+        const rr = r * r;
+        for (let z = minZ; z <= maxZ; z++)
+          for (let x = -b; x <= b; x++)
+            for (let y = -b; y <= b; y++)
+              if (x*x + y*y <= rr) this.add(cx + x, cy + y, z, color);
+      }
+
+      line(x1, y1, z1, x2, y2, z2, r, color) {
+        const dist = Math.hypot(x2 - x1, y2 - y1, z2 - z1);
+        const steps = Math.max(1, Math.ceil(dist * 2.2));
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const x = x1 + (x2 - x1) * t;
+          const y = y1 + (y2 - y1) * t;
+          const z = z1 + (z2 - z1) * t;
+          if (r <= 0.5) this.add(x, y, z, color);
+          else this.sphere(Math.round(x), Math.round(y), Math.round(z), r, color);
+        }
+      }
+
+      ringY(cx, cy, cz, radius, thickness, color) {
+        const b = Math.ceil(radius + thickness);
+        const outer = (radius + thickness) * (radius + thickness);
+        const inner = Math.max(0, radius - thickness) * Math.max(0, radius - thickness);
+        for (let x = -b; x <= b; x++) {
+          for (let z = -b; z <= b; z++) {
+            const d = x*x + z*z;
+            if (d <= outer && d >= inner) this.add(cx + x, cy, cz + z, color);
+          }
+        }
+      }
+    }
+
+    function buildInstancedMesh(builder, materialOptions = {}) {
+      const geometry = new THREE.BoxGeometry(0.96, 0.96, 0.96);
+      const baseMat = new THREE.MeshStandardMaterial({
+        roughness: materialOptions.roughness ?? 0.82,
+        metalness: materialOptions.metalness ?? 0.08
+      });
+      const mesh = new THREE.InstancedMesh(geometry, baseMat, builder.voxels.size);
+      mesh.castShadow = materialOptions.cast ?? true;
+      mesh.receiveShadow = materialOptions.receive ?? true;
+      const dummy = new THREE.Object3D();
+      const color = new THREE.Color();
+      let i = 0;
+      for (const [key, hex] of builder.voxels.entries()) {
+        const [x, y, z] = key.split(',').map(Number);
+        dummy.position.set(x, y, z);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+        color.setHex(hex);
+        mesh.setColorAt(i, color);
+        i++;
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      return mesh;
+    }
+
+    // 일반 박스: 움직이는 팔, UI 라이트, 연기용
+    const boxGeoCache = new Map();
+    function boxGeometry(w, h, d) {
+      const key = `${w}|${h}|${d}`;
+      if (!boxGeoCache.has(key)) boxGeoCache.set(key, new THREE.BoxGeometry(w, h, d));
+      return boxGeoCache.get(key);
+    }
+
+    function box({ group, x = 0, y = 0, z = 0, w = 1, h = 1, d = 1, color = 0xffffff, rx = 0, ry = 0, rz = 0, opacity = 1, emissive = 0x000000, emissiveIntensity = 0, metalness = 0.05, roughness = 0.72, cast = true, receive = true }) {
+      const mesh = new THREE.Mesh(boxGeometry(w, h, d), getMaterial(color, { opacity, emissive, emissiveIntensity, metalness, roughness }));
+      mesh.position.set(x, y, z);
+      mesh.rotation.set(rx, ry, rz);
+      mesh.castShadow = cast;
+      mesh.receiveShadow = receive;
+      group.add(mesh);
+      return mesh;
+    }
+
+    function rod(group, a, b, thickness, color, opts = {}) {
+      const start = new THREE.Vector3(a.x, a.y, a.z);
+      const end = new THREE.Vector3(b.x, b.y, b.z);
+      const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+      const dir = new THREE.Vector3().subVectors(end, start);
+      const len = dir.length();
+      const mesh = box({
+        group,
+        x: mid.x,
+        y: mid.y,
+        z: mid.z,
+        w: len,
+        h: thickness,
+        d: opts.depth ?? thickness,
+        color,
+        opacity: opts.opacity ?? 1,
+        metalness: opts.metalness ?? .15,
+        roughness: opts.roughness ?? .75
+      });
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir.normalize());
+      return mesh;
+    }
+
+    function mulberry32(seed) {
+      return function() {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+    const rand = mulberry32(20260420);
+
+    // ==========================================
+    // 4. 정적인 월드 생성
+    // ==========================================
+    const worldBuilder = new VoxelBuilder();
+
+    function buildEnvironment() {
+      // 바닥: 해변형 발사장 주변
+      for (let x = -96; x <= 96; x++) {
+        for (let z = -76; z <= 76; z++) {
+          const coast = z > 42;
+          const edge = Math.abs(x) > 84 || Math.abs(z) > 64;
+          if (coast) {
+            const wave = Math.sin(x * .13 + z * .07) + Math.cos(z * .17);
+            worldBuilder.add(x, -5 + Math.floor(wave * .25), z, wave > 1.25 ? P.water : (rand() > .85 ? P.oceanLight : P.ocean));
+            if (rand() > .985) worldBuilder.add(x, -4, z, 0xe4fbff);
+          } else {
+            const h = Math.floor(Math.sin(x * .05) * 1.3 + Math.cos(z * .04) * 1.1 - 6);
+            let c = rand() > .55 ? P.sand : P.sand2;
+            if (edge) c = rand() > .6 ? P.scrubDark : P.scrub;
+            worldBuilder.add(x, h, z, c);
+            if (rand() > .994 && Math.abs(x) > 24 && Math.abs(z) > 20) {
+              worldBuilder.box(x, h+1, z, x, h+2, z, P.scrubDark);
+              worldBuilder.add(x+1, h+1, z, P.scrub);
+              worldBuilder.add(x-1, h+1, z, P.scrub);
+            }
+          }
+        }
+      }
+
+      // 콘크리트 패드
+      worldBuilder.box(-42, -4, -30, 42, -3, 34, P.concrete);
+      for (let x = -40; x <= 40; x += 8) {
+        worldBuilder.box(x, -2, -30, x, -2, 34, P.concreteDark);
+      }
+      for (let z = -28; z <= 32; z += 8) {
+        worldBuilder.box(-42, -2, z, 42, -2, z, P.concreteDark);
+      }
+
+      // 노란 안전선
+      worldBuilder.box(-36, -1, -25, 36, -1, -24, P.warning);
+      worldBuilder.box(-36, -1, 28, 36, -1, 29, P.warning);
+      worldBuilder.box(-36, -1, -25, -35, -1, 29, P.warning);
+      worldBuilder.box(35, -1, -25, 36, -1, 29, P.warning);
+
+      // 진입 도로
+      worldBuilder.box(45, -4, -9, 95, -3, 9, P.road);
+      for (let x = 50; x <= 92; x += 10) worldBuilder.box(x, -2, -1, x+4, -2, 1, P.mark);
+
+      // 원형 발사 마운트
+      worldBuilder.cylinderY(0, -2, 8, 0, 13, P.steelDeep, true);
+      worldBuilder.cylinderY(0, 8, 11, 0, 12, P.steel, true);
+      worldBuilder.ringY(0, 12, 0, 13, 1.5, P.steelDark);
+      worldBuilder.ringY(0, 13, 0, 10, 1.2, P.warning);
+
+      // 마운트 다리와 파이프
+      for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+        const x = Math.round(Math.cos(a) * 13);
+        const z = Math.round(Math.sin(a) * 13);
+        worldBuilder.box(x-1, -4, z-1, x+1, 9, z+1, P.steelDark);
+        worldBuilder.line(x, 6, z, Math.cos(a) * 20, -3, Math.sin(a) * 20, 1, P.steelDeep);
+      }
+
+      // 화염 배수로/플레임 디플렉터
+      worldBuilder.box(-8, -8, -35, 8, -5, -12, P.steelDeep);
+      worldBuilder.box(-12, -5, -39, 12, -4, -35, P.steelDark);
+      worldBuilder.box(-6, -4, -34, 6, -3, -16, P.orange);
+      for (let z = -34; z <= -16; z += 4) {
+        worldBuilder.box(-9, -3, z, -7, -2, z+1, P.steel);
+        worldBuilder.box(7, -3, z, 9, -2, z+1, P.steel);
+      }
+
+      // 서비스 타워: 네 기둥 + X 브레이싱
+      const xs = [-28, -18];
+      const zs = [-7, 7];
+      for (const x of xs) for (const z of zs) worldBuilder.box(x-1, -3, z-1, x+1, 82, z+1, P.steelDark);
+      for (let y = 0; y <= 78; y += 8) {
+        worldBuilder.box(-31, y, -8, -15, y+1, -6, P.steel);
+        worldBuilder.box(-31, y, 6, -15, y+1, 8, P.steel);
+        worldBuilder.box(-30, y, -8, -29, y+1, 8, P.steel);
+        worldBuilder.box(-17, y, -8, -16, y+1, 8, P.steel);
+      }
+      for (let y = 0; y < 78; y += 12) {
+        worldBuilder.line(-29, y, -7, -17, y+10, -7, .7, P.steel);
+        worldBuilder.line(-17, y, -7, -29, y+10, -7, .7, P.steel);
+        worldBuilder.line(-29, y, 7, -17, y+10, 7, .7, P.steel);
+        worldBuilder.line(-17, y, 7, -29, y+10, 7, .7, P.steel);
+      }
+
+      // 타워 상단 크레인/번개 보호봉
+      worldBuilder.box(-33, 82, -9, -13, 85, 9, P.steelDeep);
+      worldBuilder.line(-23, 85, 0, -23, 102, 0, .75, P.steel);
+      worldBuilder.line(-23, 101, 0, -42, 96, 0, .65, P.steel);
+      worldBuilder.add(-42, 96, 0, P.red);
+
+      // 엘리베이터/작업 플랫폼
+      worldBuilder.box(-32, 18, -5, -30, 28, 5, P.orange);
+      worldBuilder.box(-33, 44, -8, -15, 46, 8, P.steel);
+      worldBuilder.box(-33, 60, -8, -15, 62, 8, P.steel);
+      worldBuilder.box(-33, 74, -8, -15, 76, 8, P.steel);
+
+      // 탱크 팜: 둥근 연료 탱크와 파이프
+      for (const item of [
+        {x: 56, z: -32, r: 8}, {x: 74, z: -30, r: 7}, {x: 62, z: -50, r: 6}
+      ]) {
+        worldBuilder.cylinderY(item.x, -3, 10, item.z, item.r, P.white2, true);
+        worldBuilder.sphere(item.x, 11, item.z, item.r, P.white);
+        worldBuilder.ringY(item.x, 2, item.z, item.r + 1, .6, P.steel);
+        worldBuilder.ringY(item.x, 7, item.z, item.r + 1, .6, P.steel);
+      }
+      worldBuilder.line(50, 0, -30, 14, 0, -12, .9, P.steel);
+      worldBuilder.line(69, 0, -30, 14, 0, -5, .9, P.steel);
+      worldBuilder.line(60, 0, -47, 14, 0, -17, .9, P.steel);
+
+      // 작은 컨테이너/차량/사람 크기 비교용 미니 디테일
+      worldBuilder.box(38, -2, 17, 51, 5, 25, 0x1e6bd6);
+      worldBuilder.box(54, -2, 17, 67, 5, 25, 0xd64535);
+      worldBuilder.box(31, -2, -22, 39, 1, -16, P.white);
+      worldBuilder.box(32, -1, -24, 35, 1, -22, P.black);
+      worldBuilder.box(31, -3, -20, 31, -2, -20, P.black);
+      worldBuilder.box(39, -3, -20, 39, -2, -20, P.black);
+      for (let i = 0; i < 12; i++) {
+        const x = 24 + Math.floor(rand() * 34);
+        const z = -16 + Math.floor(rand() * 30);
+        worldBuilder.add(x, -1, z, P.white);
+        worldBuilder.add(x, 0, z, P.red);
+      }
+    }
+
+    function buildStaticLabels() {
+      // 바닥에 픽셀 글자 느낌으로 X 패드 표시
+      const chars = {
+        S: ['111','100','111','001','111'],
+        P: ['110','101','110','100','100'],
+        X: ['101','101','010','101','101']
+      };
+      function drawChar(ch, ox, oz) {
+        const map = chars[ch];
+        for (let row = 0; row < map.length; row++) {
+          for (let col = 0; col < map[row].length; col++) {
+            if (map[row][col] === '1') worldBuilder.box(ox + col*2, -1, oz + row*2, ox + col*2 + 1, -1, oz + row*2 + 1, P.mark);
+          }
+        }
+      }
+      drawChar('S', -8, 21); drawChar('P', 0, 21); drawChar('X', 8, 21);
+    }
+
+    buildEnvironment();
+    buildStaticLabels();
+    const staticMesh = buildInstancedMesh(worldBuilder, { roughness: .86, metalness: .08 });
+    scene.add(staticMesh);
+
+    // ==========================================
+    // 5. 움직이는 로켓 복셀
+    // ==========================================
+    const rocketGroup = new THREE.Group();
+    scene.add(rocketGroup);
+
+    const rocketBuilder = new VoxelBuilder();
+
+    function rocketCylinder(y1, y2, radius, colorFn) {
+      const r = Math.ceil(radius);
+      for (let y = y1; y <= y2; y++) {
+        for (let x = -r; x <= r; x++) {
+          for (let z = -r; z <= r; z++) {
+            const d = x*x + z*z;
+            if (d <= radius*radius) {
+              const surface = d > (radius - 1.2) * (radius - 1.2);
+              const col = typeof colorFn === 'function' ? colorFn(x, y, z, surface) : colorFn;
+              if (surface || y === y1 || y === y2) rocketBuilder.add(x, y, z, col);
+            }
+          }
+        }
+      }
+    }
+
+    function buildRocket() {
+      // 슈퍼헤비풍 하단 부스터
+      rocketCylinder(0, 36, 5, (x, y, z, surface) => {
+        if (y < 4) return P.steelDeep;
+        if (y > 31 && y < 35) return P.black;
+        if (Math.abs(x) === 5 && z > 1 && y % 7 < 2) return P.white;
+        return (y % 6 === 0 && surface) ? P.steel : P.white2;
+      });
+
+      // 엔진벨: 9개 작은 어두운 원
+      const engines = [[0,0], [3,0], [-3,0], [0,3], [0,-3], [2,2], [-2,2], [2,-2], [-2,-2]];
+      for (const [ex, ez] of engines) rocketBuilder.cylinderY(ex, -3, -1, ez, 1, P.black);
+
+      // 그리드핀 느낌
+      rocketBuilder.box(-8, 28, -1, -6, 32, 1, P.tile);
+      rocketBuilder.box(6, 28, -1, 8, 32, 1, P.tile);
+      rocketBuilder.box(-1, 28, -8, 1, 32, -6, P.tile);
+      rocketBuilder.box(-1, 28, 6, 1, 32, 8, P.tile);
+      for (let y = 29; y <= 31; y += 2) {
+        rocketBuilder.line(-8, y, -1, -6, y+1, 1, .4, P.steel);
+        rocketBuilder.line(8, y, -1, 6, y+1, 1, .4, P.steel);
+      }
+
+      // 상단 우주선 + 검은 열차폐 타일
+      rocketCylinder(37, 59, 5, (x, y, z, surface) => {
+        if (z > 2 && surface) return P.tile;
+        if (y === 47 && x < 0 && z < -3) return P.window;
+        return y % 5 === 0 ? P.white2 : P.white;
+      });
+
+      // 노즈콘: 위로 갈수록 작아짐
+      for (let y = 60; y <= 72; y++) {
+        const t = (y - 60) / 12;
+        const radius = Math.max(.8, 5 * (1 - t));
+        const r = Math.ceil(radius);
+        for (let x = -r; x <= r; x++) {
+          for (let z = -r; z <= r; z++) {
+            if (x*x + z*z <= radius * radius) {
+              const surface = x*x + z*z > Math.max(0, radius - 1.15) * Math.max(0, radius - 1.15);
+              if (surface || y === 72) rocketBuilder.add(x, y, z, z > 1 ? P.tile : P.white);
+            }
+          }
+        }
+      }
+
+      // 플랩/핀
+      rocketBuilder.box(-8, 41, 2, -6, 50, 4, P.tile);
+      rocketBuilder.box(6, 41, 2, 8, 50, 4, P.tile);
+      rocketBuilder.box(-7, 62, 1, -5, 68, 3, P.tile);
+      rocketBuilder.box(5, 62, 1, 7, 68, 3, P.tile);
+
+      // 글자 느낌: SPX
+      rocketBuilder.box(-5, 16, -5, -4, 17, -5, P.black);
+      rocketBuilder.box(-5, 18, -5, -4, 19, -5, P.black);
+      rocketBuilder.box(-5, 20, -5, -4, 21, -5, P.black);
+      rocketBuilder.box(-3, 16, -5, -2, 21, -5, P.black);
+      rocketBuilder.box(0, 16, -5, 1, 21, -5, P.black);
+      rocketBuilder.box(2, 16, -5, 3, 17, -5, P.black);
+      rocketBuilder.box(2, 20, -5, 3, 21, -5, P.black);
+    }
+    buildRocket();
+    const rocketMesh = buildInstancedMesh(rocketBuilder, { roughness: .55, metalness: .18 });
+    rocketGroup.add(rocketMesh);
+    rocketGroup.position.set(0, 14, 0);
+
+    // ==========================================
+    // 6. 움직이는 팔, 불꽃, 연기
+    // ==========================================
+    const armRoot = new THREE.Group();
+    armRoot.position.set(-18, 46, 0);
+    scene.add(armRoot);
+
+    function buildChopstickArm(zSign) {
+      const g = new THREE.Group();
+      g.position.set(0, 0, 0);
+      const z = zSign * 4.5;
+      box({ group: g, x: 5.5, y: 0, z, w: 13, h: 1.3, d: 1.3, color: P.steel, metalness: .25 });
+      box({ group: g, x: 5.5, y: 3.2, z, w: 13, h: 1.0, d: 1.0, color: P.steelDark, metalness: .25 });
+      for (let i = 0; i < 6; i++) {
+        rod(g, {x: i*2, y: .6, z}, {x: i*2 + 2, y: 3.1, z}, .45, P.steelDark, {metalness: .25});
+      }
+      box({ group: g, x: 12.8, y: 1.4, z, w: 2.2, h: 3.8, d: 1.6, color: P.warning });
+      return g;
+    }
+    const armA = buildChopstickArm(1);
+    const armB = buildChopstickArm(-1);
+    armRoot.add(armA, armB);
+
+    const ventGroup = new THREE.Group();
+    scene.add(ventGroup);
+    const ventCubes = [];
+    for (let i = 0; i < 44; i++) {
+      const mesh = box({
+        group: ventGroup,
+        x: -12 + rand() * 24,
+        y: 8 + rand() * 30,
+        z: -10 + rand() * 20,
+        w: 1.2 + rand() * 2.2,
+        h: 1.2 + rand() * 2.2,
+        d: 1.2 + rand() * 2.2,
+        color: rand() > .5 ? P.smoke : P.white2,
+        opacity: .18,
+        cast: false,
+        receive: false
+      });
+      mesh.userData = { baseX: mesh.position.x, baseY: mesh.position.y, baseZ: mesh.position.z, speed: .4 + rand() * .8, phase: rand() * Math.PI * 2 };
+      ventCubes.push(mesh);
+    }
+
+    const fireGroup = new THREE.Group();
+    rocketGroup.add(fireGroup);
+    fireGroup.position.set(0, -3.8, 0);
+    const fireCubes = [];
+    for (let i = 0; i < 72; i++) {
+      const kind = rand();
+      const color = kind > .68 ? P.blueFire : (kind > .35 ? P.yellow : P.orange);
+      const mesh = box({
+        group: fireGroup,
+        x: 0, y: 0, z: 0,
+        w: 1.1, h: 1.1, d: 1.1,
+        color,
+        emissive: color,
+        emissiveIntensity: 1.6,
+        opacity: .96,
+        cast: false,
+        receive: false,
+        roughness: .45
+      });
+      mesh.userData = {
+        angle: rand() * Math.PI * 2,
+        radius: rand() * 4.2,
+        speed: .8 + rand() * 1.6,
+        phase: rand(),
+        size: .6 + rand() * 2.2,
+        length: 16 + rand() * 18
+      };
+      fireCubes.push(mesh);
+    }
+
+    const smokeGroup = new THREE.Group();
+    scene.add(smokeGroup);
+    const smokeCubes = [];
+    for (let i = 0; i < 150; i++) {
+      const size = 1.2 + rand() * 5.0;
+      const color = rand() > .55 ? P.smoke : P.smokeDark;
+      const mesh = box({
+        group: smokeGroup,
+        w: size,
+        h: size,
+        d: size,
+        color,
+        opacity: .22,
+        cast: false,
+        receive: false,
+        roughness: .95
+      });
+      mesh.material = mesh.material.clone();
+      mesh.userData = {
+        angle: rand() * Math.PI * 2,
+        baseRadius: 4 + rand() * 12,
+        spread: 26 + rand() * 42,
+        rise: 4 + rand() * 18,
+        phase: rand(),
+        speed: .6 + rand() * .8,
+        size
+      };
+      smokeCubes.push(mesh);
+    }
+
+    const waterGroup = new THREE.Group();
+    scene.add(waterGroup);
+    const waterJets = [];
+    for (let i = 0; i < 36; i++) {
+      const angle = (Math.PI * 2 * i) / 36;
+      const mesh = box({
+        group: waterGroup,
+        x: Math.cos(angle) * 15,
+        y: 6,
+        z: Math.sin(angle) * 15,
+        w: .9,
+        h: 6,
+        d: .9,
+        color: P.water,
+        opacity: .62,
+        emissive: P.water,
+        emissiveIntensity: .18,
+        cast: false,
+        receive: false
+      });
+      mesh.rotation.z = Math.cos(angle) * .65;
+      mesh.rotation.x = -Math.sin(angle) * .65;
+      mesh.userData = { angle, baseY: 5 + rand() * 3, phase: rand() * Math.PI * 2 };
+      waterJets.push(mesh);
+    }
+
+    const lightsGroup = new THREE.Group();
+    scene.add(lightsGroup);
+    const towerLights = [];
+    for (let y = 8; y <= 78; y += 7) {
+      for (const z of [-8.8, 8.8]) {
+        const mesh = box({
+          group: lightsGroup,
+          x: -16.2,
+          y,
+          z,
+          w: 1.1,
+          h: 1.1,
+          d: 1.1,
+          color: P.red,
+          emissive: P.red,
+          emissiveIntensity: 1.4,
+          opacity: .9,
+          cast: false,
+          receive: false
+        });
+        towerLights.push(mesh);
+      }
+    }
+
+    const cloudsGroup = new THREE.Group();
+    scene.add(cloudsGroup);
+    const cloudItems = [];
+    function addVoxelCloud(cx, cy, cz, s, drift) {
+      const g = new THREE.Group();
+      g.position.set(cx, cy, cz);
+      cloudsGroup.add(g);
+      for (let i = 0; i < 16; i++) {
+        box({
+          group: g,
+          x: (rand() - .5) * s * 3.6,
+          y: (rand() - .5) * s * 1.1,
+          z: (rand() - .5) * s * 1.8,
+          w: s * (.8 + rand() * 1.2),
+          h: s * (.45 + rand() * .75),
+          d: s * (.6 + rand() * 1.0),
+          color: rand() > .65 ? 0xe1f4ff : 0xffffff,
+          opacity: .68,
+          cast: false,
+          receive: false
+        });
+      }
+      g.userData = { baseX: cx, drift, phase: rand() * Math.PI * 2 };
+      cloudItems.push(g);
+    }
+    addVoxelCloud(-78, 88, -70, 4.4, .16);
+    addVoxelCloud(52, 102, -88, 5.3, .11);
+    addVoxelCloud(80, 75, 40, 3.8, .20);
+    addVoxelCloud(-28, 118, 66, 4.2, .14);
+
+    // ==========================================
+    // 7. 발사 시퀀스 애니메이션
+    // ==========================================
+    const countdownEl = document.getElementById('countdown');
+    const phaseEl = document.getElementById('phase');
+    const progressEl = document.getElementById('progress');
+    const cornerEl = document.getElementById('corner');
+    const clock = new THREE.Clock();
+    let paused = false;
+    let timeOffset = 0;
+    let pauseStamp = 0;
+    const cycleLength = 24;
+
+    function smoothstep(edge0, edge1, x) {
+      const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+      return t * t * (3 - 2 * t);
+    }
+
+    function easeOutCubic(x) {
+      return 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+    }
+
+    function sequence(t) {
+      const p = t % cycleLength;
+      let phase = '대기';
+      let rocketY = 0;
+      let fire = 0;
+      let smoke = 0;
+      let water = 0;
+      let armOpen = 0;
+      let targetY = 32;
+      let countdown = 'T-05';
+
+      if (p < 5) {
+        const left = Math.ceil(5 - p);
+        countdown = `T-0${left}`;
+        phase = '카운트다운';
+        fire = smoothstep(3.7, 5, p) * .25;
+        smoke = smoothstep(4.1, 5, p) * .15;
+        water = smoothstep(3.5, 5, p) * .8;
+      } else if (p < 8) {
+        phase = '엔진 점화';
+        countdown = 'T-00';
+        fire = .35 + smoothstep(5, 8, p) * .55;
+        smoke = .45 + smoothstep(5, 8, p) * .4;
+        water = 1;
+        armOpen = smoothstep(5.4, 7.3, p) * .78;
+        rocketY = Math.sin(p * 34) * .18;
+      } else if (p < 17) {
+        phase = '이륙';
+        countdown = 'LIFTOFF';
+        const u = (p - 8) / 9;
+        rocketY = easeOutCubic(u) * 138;
+        fire = 1;
+        smoke = 1;
+        water = Math.max(0, 1 - u * .7);
+        armOpen = .78;
+        targetY = 32 + Math.min(82, rocketY * .58);
+      } else if (p < 20.8) {
+        phase = '상승';
+        countdown = 'MAX Q';
+        rocketY = 138 + (p - 17) * 14;
+        fire = .85;
+        smoke = .35;
+        water = 0;
+        armOpen = .78;
+        targetY = 90;
+      } else {
+        phase = '재장전';
+        countdown = 'RESET';
+        rocketY = 0;
+        fire = 0;
+        smoke = 0;
+        water = 0;
+        armOpen = 0;
+        targetY = 32;
+      }
+      return { p, phase, rocketY, fire, smoke, water, armOpen, targetY, countdown };
+    }
+
+    function updateFire(t, strength) {
+      fireGroup.visible = strength > .03;
+      for (const cube of fireCubes) {
+        const d = cube.userData;
+        const life = (t * d.speed + d.phase) % 1;
+        const radius = d.radius * (0.4 + life * 1.1) * strength;
+        cube.position.x = Math.cos(d.angle + t * 1.8) * radius;
+        cube.position.z = Math.sin(d.angle + t * 1.8) * radius;
+        cube.position.y = -life * d.length * (0.45 + strength);
+        const s = d.size * (0.5 + life * 1.8) * Math.max(.08, strength);
+        cube.scale.setScalar(s);
+        cube.material.opacity = Math.max(0, (1 - life * .88) * strength);
+      }
+      ignitionLight.intensity = strength * 22;
+      ignitionLight.distance = 45 + strength * 85;
+    }
+
+    function updateSmoke(t, strength) {
+      for (const cube of smokeCubes) {
+        const d = cube.userData;
+        if (strength <= .02) {
+          cube.visible = false;
+          continue;
+        }
+        cube.visible = true;
+        const life = (t * d.speed + d.phase) % 1;
+        const spread = d.baseRadius + d.spread * life * strength;
+        const swirl = d.angle + Math.sin(t * .7 + d.phase * 8) * .45;
+        cube.position.x = Math.cos(swirl) * spread;
+        cube.position.z = Math.sin(swirl) * spread - life * 10;
+        cube.position.y = 1 + life * d.rise + Math.sin(t * 2 + d.phase) * 1.2;
+        const s = d.size * (.7 + life * 2.1) * (.55 + strength * .8);
+        cube.scale.setScalar(s);
+        cube.rotation.x += .002 + strength * .006;
+        cube.rotation.y += .004 + strength * .01;
+        cube.material.opacity = Math.max(0, (1 - life) * .38 * strength);
+      }
+    }
+
+    function updateWater(t, strength) {
+      for (const jet of waterJets) {
+        jet.visible = strength > .05;
+        const life = (Math.sin(t * 8 + jet.userData.phase) + 1) / 2;
+        jet.scale.y = (0.2 + strength * (1.1 + life * .8));
+        jet.position.y = jet.userData.baseY + life * 3 * strength;
+        jet.material.opacity = .15 + .55 * strength;
+      }
+    }
+
+    function updateVents(t, strength) {
+      for (const cube of ventCubes) {
+        cube.visible = strength > .02;
+        const d = cube.userData;
+        cube.position.x = d.baseX + Math.sin(t * d.speed + d.phase) * 1.5;
+        cube.position.z = d.baseZ + Math.cos(t * d.speed * .7 + d.phase) * 1.5;
+        cube.position.y = d.baseY + Math.sin(t * d.speed + d.phase) * 2;
+        cube.material.opacity = .04 + strength * .18;
+      }
+    }
+
+    function updateArms(openAmount) {
+      // 벌어지는 젓가락 팔. 0 = 로켓 가까이, 1 = 옆으로 활짝.
+      armA.rotation.y = -openAmount * 0.78;
+      armB.rotation.y = openAmount * 0.78;
+      armA.position.z = openAmount * 1.6;
+      armB.position.z = -openAmount * 1.6;
+    }
+
+    function updateTowerLights(t, fireStrength) {
+      for (let i = 0; i < towerLights.length; i++) {
+        const light = towerLights[i];
+        const blink = (Math.sin(t * 5.5 + i * .8) + 1) / 2;
+        light.material.emissiveIntensity = .6 + blink * 1.8 + fireStrength * .7;
+        light.scale.setScalar(1 + blink * .12);
+      }
+    }
+
+    function updateClouds(t) {
+      for (const cloud of cloudItems) {
+        cloud.position.x = cloud.userData.baseX + Math.sin(t * cloud.userData.drift + cloud.userData.phase) * 9;
+        cloud.position.y += Math.sin(t * .15 + cloud.userData.phase) * .002;
+      }
+    }
+
+    function updateUI(data) {
+      countdownEl.textContent = data.countdown;
+      phaseEl.textContent = data.phase;
+      progressEl.style.width = `${(data.p / cycleLength) * 100}%`;
+      cornerEl.innerHTML = paused ? 'PAUSED' : 'LIVE';
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const rawT = clock.getElapsedTime();
+      const t = paused ? pauseStamp : rawT - timeOffset;
+      const data = sequence(t);
+
+      const rumble = data.fire > .2 ? (Math.sin(t * 50) * .09 + Math.sin(t * 83) * .045) * data.fire : 0;
+      rocketGroup.position.set(Math.sin(t * 2.4) * .08 * data.fire, 14 + data.rocketY + rumble, Math.cos(t * 2.1) * .06 * data.fire);
+      rocketGroup.rotation.z = Math.sin(t * 1.7) * .002 * data.fire;
+      rocketGroup.rotation.x = Math.sin(t * 1.5) * .002 * data.fire;
+
+      updateFire(t, data.fire);
+      updateSmoke(t, data.smoke);
+      updateWater(t, data.water);
+      updateVents(t, data.smoke);
+      updateArms(data.armOpen);
+      updateTowerLights(t, data.fire);
+      updateClouds(t);
+      updateUI(data);
+
+      controls.target.y += (data.targetY - controls.target.y) * .035;
+      controls.autoRotateSpeed = .35 + data.fire * .42;
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('keydown', (event) => {
+      if (event.code === 'Space') {
+        paused = !paused;
+        if (paused) {
+          pauseStamp = clock.getElapsedTime() - timeOffset;
+        } else {
+          timeOffset = clock.getElapsedTime() - pauseStamp;
+        }
+      }
+      if (event.key.toLowerCase() === 'r') {
+        timeOffset = clock.getElapsedTime();
+        pauseStamp = 0;
+        paused = false;
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // 로딩 화면이 먼저 뜬 뒤, 자연스럽게 열기
+    setTimeout(() => {
+      const loader = document.getElementById('loader');
+      loader.style.opacity = '0';
+      loader.style.visibility = 'hidden';
+      animate();
+    }, 220);
+  </script>
+</body>
+</html>
