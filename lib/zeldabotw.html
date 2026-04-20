@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 야생의 용사 링크</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(#8fd8ff 0%, #d9f6ff 48%, #c8efa8 100%);
+            font-family: 'Noto Sans KR', sans-serif;
+            user-select: none;
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 38%, rgba(10, 18, 35, 0.42) 125%);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        #loader {
+            position: absolute;
+            inset: 0;
+            background: #071a2a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            color: white;
+            transition: opacity 1s ease, visibility 1s ease;
+        }
+
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube {
+            width: 50px;
+            height: 50px;
+            background: #28d7ff;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(40, 215, 255, 0.75);
+            border-radius: 4px;
+        }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #ffd84d; box-shadow: 0 0 24px rgba(255, 216, 77, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); }
+        }
+
+        #loader h1 {
+            font-weight: 900;
+            letter-spacing: 5px;
+            font-size: 2rem;
+            margin: 0;
+            text-transform: uppercase;
+        }
+        #loader p {
+            color: #a8c2d7;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+
+        #ui {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            background: rgba(7, 18, 32, 0.66);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: #fff;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.36);
+            z-index: 10;
+            pointer-events: none;
+            max-width: 420px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards;
+        }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title {
+            font-size: 32px;
+            font-weight: 900;
+            color: #28d7ff;
+            text-transform: uppercase;
+            letter-spacing: 1.4px;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }
+        .subtitle {
+            font-size: 15px;
+            color: #ffd84d;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+        }
+        .instructions {
+            font-size: 13.5px;
+            color: #d8e8f4;
+            line-height: 1.8;
+            background: rgba(0,0,0,0.24);
+            padding: 12px 15px;
+            border-radius: 8px;
+        }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>하이랄 초원 위 야생의 용사를 만들고 있습니다</p>
+    </div>
+
+    <div id="ui">
+        <div class="title">야생의 용사 링크</div>
+        <div class="subtitle">패러세일 · 고대 탑 · 푸른 튜닉 복셀 디오라마</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ==========================================
+        // 1. 씬 설정 및 렌더러
+        // ==========================================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x9ee2ff);
+        scene.fog = new THREE.FogExp2(0xbdeeff, 0.0032);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(-78, 58, 92);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.12;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 26, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 260;
+        controls.minDistance = 24;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 1.05;
+
+        // ==========================================
+        // 2. 밝고 상쾌한 하이랄식 조명
+        // ==========================================
+        const ambientLight = new THREE.AmbientLight(0xeef8ff, 0.5);
+        scene.add(ambientLight);
+
+        const hemiLight = new THREE.HemisphereLight(0xbff0ff, 0x567a35, 0.72);
+        scene.add(hemiLight);
+
+        const sunLight = new THREE.DirectionalLight(0xfff1aa, 2.35);
+        sunLight.position.set(-90, 120, 70);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 4096;
+        sunLight.shadow.mapSize.height = 4096;
+        const d = 145;
+        sunLight.shadow.camera.left = -d;
+        sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d;
+        sunLight.shadow.camera.bottom = -d;
+        sunLight.shadow.camera.near = 10;
+        sunLight.shadow.camera.far = 420;
+        sunLight.shadow.bias = -0.0005;
+        scene.add(sunLight);
+
+        const shrineGlow = new THREE.PointLight(0x28d7ff, 1.3, 120);
+        shrineGlow.position.set(-42, 16, -32);
+        scene.add(shrineGlow);
+
+        const warmCampLight = new THREE.PointLight(0xff8a30, 1.0, 80);
+        warmCampLight.position.set(34, 9, 28);
+        scene.add(warmCampLight);
+
+        // ==========================================
+        // 3. 초고속 복셀 엔진
+        // ==========================================
+        class VoxelBuilder {
+            constructor() { this.voxels = new Map(); }
+
+            add(x, y, z, color) {
+                x = Math.round(x); y = Math.round(y); z = Math.round(z);
+                this.voxels.set(`${x},${y},${z}`, color);
+            }
+
+            box(x1, y1, z1, x2, y2, z2, color) {
+                for(let x=Math.min(x1,x2); x<=Math.max(x1,x2); x++)
+                for(let y=Math.min(y1,y2); y<=Math.max(y1,y2); y++)
+                for(let z=Math.min(z1,z2); z<=Math.max(z1,z2); z++) this.add(x, y, z, color);
+            }
+
+            sphere(cx, cy, cz, r, color) {
+                const rSq = r*r;
+                const b = Math.ceil(r);
+                for(let x=-b; x<=b; x++)
+                for(let y=-b; y<=b; y++)
+                for(let z=-b; z<=b; z++) {
+                    if(x*x + y*y + z*z <= rSq) this.add(cx+x, cy+y, cz+z, color);
+                }
+            }
+
+            ellipsoid(cx, cy, cz, rx, ry, rz, color) {
+                for(let x=-rx; x<=rx; x++)
+                for(let y=-ry; y<=ry; y++)
+                for(let z=-rz; z<=rz; z++) {
+                    if((x*x)/(rx*rx) + (y*y)/(ry*ry) + (z*z)/(rz*rz) <= 1) this.add(cx+x, cy+y, cz+z, color);
+                }
+            }
+
+            cylinderY(cx, cy1, cy2, cz, r, color) {
+                const rSq = r*r;
+                const b = Math.ceil(r);
+                for(let y=Math.min(cy1,cy2); y<=Math.max(cy1,cy2); y++)
+                for(let x=-b; x<=b; x++)
+                for(let z=-b; z<=b; z++) {
+                    if(x*x + z*z <= rSq) this.add(cx+x, y, cz+z, color);
+                }
+            }
+
+            cylinderZ(cx, cy, cz1, cz2, r, color) {
+                const rSq = r*r;
+                const b = Math.ceil(r);
+                for(let z=Math.min(cz1,cz2); z<=Math.max(cz1,cz2); z++)
+                for(let x=-b; x<=b; x++)
+                for(let y=-b; y<=b; y++) {
+                    if(x*x + y*y <= rSq) this.add(cx+x, cy+y, z, color);
+                }
+            }
+
+            line(x1, y1, z1, x2, y2, z2, r, color) {
+                const dist = Math.hypot(x2-x1, y2-y1, z2-z1);
+                const steps = Math.ceil(dist * 2.6);
+                for(let i=0; i<=steps; i++) {
+                    const t = steps === 0 ? 0 : i / steps;
+                    const cx = x1 + (x2-x1)*t;
+                    const cy = y1 + (y2-y1)*t;
+                    const cz = z1 + (z2-z1)*t;
+                    if(r <= 0.5) this.add(cx, cy, cz, color);
+                    else this.sphere(Math.round(cx), Math.round(cy), Math.round(cz), r, color);
+                }
+            }
+
+            torusY(cx, cy, cz, R, r, color) {
+                const bound = Math.ceil(R+r);
+                for(let u=-bound; u<=bound; u++)
+                for(let v=-bound; v<=bound; v++)
+                for(let w=-Math.ceil(r); w<=Math.ceil(r); w++) {
+                    const dC = Math.hypot(u, v);
+                    const dT = Math.hypot(dC-R, w);
+                    if(dT <= r) this.add(cx+u, cy+w, cz+v, color);
+                }
+            }
+        }
+
+        const v = new VoxelBuilder();
+
+        // 색상 팔레트
+        const P = {
+            skyBlue: 0x9ee2ff,
+            cloud: 0xffffff,
+            cloudShade: 0xe9f6ff,
+            grass: 0x62b947,
+            grassLight: 0x8ed65f,
+            grassDark: 0x367c36,
+            flowerBlue: 0x4cc9ff,
+            flowerYellow: 0xffdd43,
+            flowerPink: 0xff7ab6,
+            dirt: 0x8a6240,
+            dirtDark: 0x60402b,
+            rock: 0x7d827b,
+            rockDark: 0x565b57,
+            stone: 0xa9aaa2,
+            stoneDark: 0x777b78,
+            ancientSlate: 0x344a5c,
+            ancientDark: 0x1c2d3a,
+            ancientBlue: 0x28d7ff,
+            ancientBlueDeep: 0x0a84c1,
+            ancientOrange: 0xff9d2e,
+            wood: 0x8a5a2b,
+            woodDark: 0x5a3519,
+            leaf: 0x2f8f45,
+            leafLight: 0x5ec85a,
+            skin: 0xf1c27d,
+            skinShade: 0xd89b5f,
+            hair: 0xf0c64f,
+            hairDark: 0xb98527,
+            tunicBlue: 0x1f9bd1,
+            tunicDark: 0x10658d,
+            pants: 0xd6c59a,
+            boots: 0x6a3b1a,
+            belt: 0x4b2a16,
+            glove: 0x7d4b2a,
+            swordSilver: 0xcfd8dc,
+            swordEdge: 0xf6ffff,
+            swordBlue: 0x4cb6ff,
+            shieldBlue: 0x1b56a5,
+            shieldRed: 0xb51f2e,
+            shieldSilver: 0xd9e4ea,
+            shieldGold: 0xffcf4d,
+            gliderTan: 0xd8a85a,
+            gliderDark: 0x6d3b1c,
+            gliderRed: 0xa64022,
+            gliderGold: 0xffd15c,
+            fire: 0xff5a1f,
+            fireHot: 0xfff05a,
+            ember: 0x9c2f14,
+            water: 0x2ea6d6,
+            waterDeep: 0x146b96,
+            fish: 0x9be7ff,
+            fairy: 0x89fff2
+        };
+
+        // ==========================================
+        // 4. 절차적 월드 생성
+        // ==========================================
+        function generateWorld() {
+            buildEnvironment();
+            buildAncientTower();
+            buildShrine();
+            buildHeroLink();
+            buildAdventureDetails();
+        }
+
+        function terrainHeight(x, z) {
+            const plateau = 2.3 * Math.sin(x * 0.06) + 1.6 * Math.cos(z * 0.07) + 1.2 * Math.sin((x+z) * 0.045);
+            const cliffLift = z > 18 ? 8 : 0;
+            const bowl = -Math.max(0, 18 - Math.hypot(x+35, z-28)) * 0.28;
+            return Math.floor(plateau + cliffLift + bowl);
+        }
+
+        function buildEnvironment() {
+            // 하이랄 초원 지형
+            for(let x=-82; x<=82; x++) {
+                for(let z=-66; z<=66; z++) {
+                    let h = terrainHeight(x, z);
+                    const lake = Math.hypot(x+35, z-30) < 17 && z > 12;
+
+                    if(lake) {
+                        const wy = 1 + Math.floor(Math.sin(x*0.25 + z*0.13) * 0.5);
+                        v.add(x, wy, z, Math.random() > 0.8 ? P.fish : P.water);
+                        v.add(x, wy-1, z, P.waterDeep);
+                        v.add(x, wy-2, z, P.dirtDark);
+                    } else {
+                        const edge = Math.abs(x) > 72 || Math.abs(z) > 58;
+                        const topColor = edge ? P.rock : (Math.random() > 0.76 ? P.grassLight : P.grass);
+                        v.add(x, h, z, topColor);
+                        v.add(x, h-1, z, P.dirt);
+                        if(Math.random() > 0.996 && Math.abs(x) < 64 && Math.abs(z) < 52) {
+                            const flower = Math.random() > 0.66 ? P.flowerBlue : (Math.random() > 0.5 ? P.flowerYellow : P.flowerPink);
+                            v.add(x, h+1, z, flower);
+                        }
+                        // 키 작은 풀
+                        if(Math.random() > 0.992 && Math.hypot(x, z) > 16) {
+                            v.line(x, h+1, z, x+Math.random()*2-1, h+3, z+Math.random()*2-1, 0.45, P.grassDark);
+                        }
+                    }
+                }
+            }
+
+            // 중앙 절벽/발판
+            for(let x=-18; x<=18; x++) {
+                for(let z=-16; z<=16; z++) {
+                    const r = Math.hypot(x/1.15, z);
+                    if(r < 18) {
+                        const y = 7 + Math.floor(Math.sin(x*0.25)*0.8 + Math.cos(z*0.2)*0.6);
+                        v.add(x, y, z, r > 15 ? P.rockDark : P.grassLight);
+                        v.add(x, y-1, z, P.rock);
+                        v.add(x, y-2, z, P.rockDark);
+                    }
+                }
+            }
+
+            // 오래된 돌길
+            for(let i=-55; i<=45; i++) {
+                const x = i;
+                const z = Math.round(7 * Math.sin(i * 0.08) - 28 + i * 0.25);
+                const h = terrainHeight(x, z);
+                v.box(x-2, h+1, z-1, x+2, h+1, z+1, Math.random() > 0.4 ? P.stone : P.stoneDark);
+            }
+
+            // 먼 산맥
+            for(let mx=-110; mx<=110; mx+=14) {
+                const peak = 30 + Math.random()*30;
+                const baseZ = -92 + Math.random()*8;
+                for(let y=-12; y<peak; y++) {
+                    const width = Math.max(1, Math.floor((peak-y) * 0.22));
+                    v.box(mx-width, y, baseZ-width, mx+width, y, baseZ+width, y > peak-9 ? 0xeaf7ff : P.rockDark);
+                }
+            }
+
+            // 구름
+            function addCloud(cx, cy, cz, r) {
+                v.sphere(cx, cy, cz, r, P.cloud);
+                v.sphere(cx+r*1.2, cy-r*0.18, cz, r*0.8, P.cloud);
+                v.sphere(cx-r*1.2, cy-r*0.18, cz, r*0.85, P.cloud);
+                v.sphere(cx, cy+r*0.45, cz+r*0.7, r*0.65, P.cloudShade);
+                v.sphere(cx+r*0.3, cy+r*0.35, cz-r*0.8, r*0.65, P.cloud);
+            }
+            addCloud(-55, 77, -55, 7);
+            addCloud(62, 88, -42, 9);
+            addCloud(18, 99, -76, 8);
+            addCloud(-10, 70, 55, 5);
+
+            // 나무 몇 그루
+            addTree(-50, terrainHeight(-50, -4), -4, 22);
+            addTree(58, terrainHeight(58, 5), 5, 25);
+            addTree(43, terrainHeight(43, 44), 44, 20);
+            addTree(-63, terrainHeight(-63, 36), 36, 18);
+        }
+
+        function addTree(x, y, z, height) {
+            for(let i=0; i<height; i++) {
+                const bendX = Math.sin(i*0.18) * 0.45;
+                v.cylinderY(x + bendX, y+i, y+i+1, z, Math.max(1.3, 3 - i*0.08), i%2 ? P.wood : P.woodDark);
+            }
+            const topY = y + height;
+            v.sphere(x, topY, z, 8, P.leaf);
+            v.sphere(x+6, topY-2, z+2, 6, P.leafLight);
+            v.sphere(x-6, topY-1, z-1, 6, P.leaf);
+            v.sphere(x+1, topY+5, z, 6, P.leafLight);
+            // 사과 느낌의 빨간 점
+            if(Math.random() > 0.35) {
+                v.sphere(x+5, topY-2, z+3, 1.4, 0xdd3344);
+                v.sphere(x-4, topY+1, z-3, 1.2, 0xdd3344);
+            }
+        }
+
+        function buildAncientTower() {
+            // 멀리 보이는 고대 탑
+            const tx = 55, tz = -42;
+            const ground = terrainHeight(tx, tz);
+
+            // 바위 받침
+            for(let i=0; i<50; i++) {
+                v.sphere(tx + (Math.random()-0.5)*22, ground + Math.random()*4, tz + (Math.random()-0.5)*18, 1.5 + Math.random()*3.2, P.rock);
+            }
+
+            v.cylinderY(tx, ground, ground+52, tz, 5.6, P.ancientSlate);
+            v.cylinderY(tx, ground+4, ground+8, tz, 6.2, P.ancientDark);
+            v.cylinderY(tx, ground+18, ground+22, tz, 6.1, P.ancientDark);
+            v.cylinderY(tx, ground+34, ground+38, tz, 6.0, P.ancientDark);
+
+            // 푸른 발광 문양
+            for(let y=ground+7; y<ground+50; y+=7) {
+                v.box(tx-6, y, tz, tx-6, y+2, tz+1, P.ancientBlue);
+                v.box(tx+6, y+2, tz-1, tx+6, y+4, tz, P.ancientBlueDeep);
+            }
+
+            // 상단 관측대
+            v.cylinderY(tx, ground+52, ground+56, tz, 9, P.ancientDark);
+            v.cylinderY(tx, ground+56, ground+59, tz, 7, P.ancientBlueDeep);
+            v.sphere(tx, ground+60, tz, 5, P.ancientBlue);
+            for(let a=0; a<Math.PI*2; a+=Math.PI/4) {
+                v.line(tx, ground+58, tz, tx+Math.cos(a)*15, ground+54, tz+Math.sin(a)*15, 0.9, P.ancientSlate);
+            }
+        }
+
+        function buildShrine() {
+            // 왼쪽 뒤의 작은 고대 사당
+            const sx = -44, sz = -32;
+            const gy = terrainHeight(sx, sz) + 1;
+
+            v.box(sx-10, gy, sz-8, sx+10, gy+2, sz+8, P.stoneDark);
+            v.box(sx-8, gy+3, sz-6, sx+8, gy+12, sz+6, P.ancientSlate);
+            v.box(sx-6, gy+4, sz+6, sx+6, gy+10, sz+7, P.ancientBlueDeep);
+            v.box(sx-3, gy+4, sz+7, sx+3, gy+9, sz+8, P.ancientBlue);
+
+            // 둥근 지붕 느낌
+            for(let y=0; y<8; y++) {
+                const r = 9 - y;
+                v.cylinderY(sx, gy+12+y, gy+12+y, sz, Math.max(2, r), y%2 ? P.ancientSlate : P.ancientDark);
+            }
+            v.sphere(sx, gy+21, sz, 3, P.ancientBlue);
+
+            // 사당 앞 발광 바닥 무늬
+            for(let i=0; i<18; i++) {
+                v.add(sx-9+i, gy+1, sz+13, i%2 ? P.ancientBlue : P.ancientBlueDeep);
+                if(i%3===0) v.add(sx-9+i, gy+1, sz+10, P.ancientBlue);
+            }
+        }
+
+        function buildHeroLink() {
+            // 중심: 패러세일을 탄 링크 스타일의 복셀 영웅
+            // 발 / 다리
+            v.box(-5, 10, -3, -2, 16, -1, P.boots);
+            v.box(2, 10, 1, 5, 16, 3, P.boots);
+            v.line(-3, 16, -2, -5, 26, -3, 1.9, P.pants);
+            v.line(3, 16, 2, 5, 26, 3, 1.9, P.pants);
+            v.box(-5, 9, -5, -1, 11, -2, P.boots);
+            v.box(1, 9, 2, 5, 11, 5, P.boots);
+
+            // 몸통: 푸른 튜닉
+            v.ellipsoid(0, 31, 0, 6, 9, 4, P.tunicBlue);
+            v.box(-6, 28, -4, 6, 30, 4, P.belt);
+            v.add(0, 30, 4, P.shieldGold);
+            v.box(-4, 22, -3, 4, 27, 3, P.tunicDark); // 튜닉 아랫단
+
+            // 어깨와 팔: 위로 패러세일 잡기
+            v.sphere(-6, 36, 0, 2.4, P.tunicBlue);
+            v.sphere(6, 36, 0, 2.4, P.tunicBlue);
+            v.line(-6, 35, 0, -18, 50, -3, 2.0, P.tunicBlue);
+            v.line(6, 35, 0, 18, 50, -3, 2.0, P.tunicBlue);
+            v.sphere(-18, 50, -3, 1.8, P.glove);
+            v.sphere(18, 50, -3, 1.8, P.glove);
+
+            // 목 / 머리
+            v.box(-2, 39, -1, 2, 42, 1, P.skinShade);
+            v.sphere(0, 47, 0, 5.3, P.skin);
+            // 얼굴
+            v.box(-2, 48, 4, -1, 49, 5, 0x202020);
+            v.box(2, 48, 4, 3, 49, 5, 0x202020);
+            v.add(-1, 50, 5, P.skinShade);
+            v.add(1, 50, 5, P.skinShade);
+            v.box(-1, 45, 5, 1, 45, 5, 0x8b4631);
+
+            // 금발 머리와 묶은 머리
+            v.ellipsoid(0, 50, -1, 5, 3, 5, P.hair);
+            v.box(-5, 47, -2, -4, 50, 4, P.hairDark);
+            v.box(4, 47, -2, 5, 50, 4, P.hairDark);
+            v.line(0, 48, -5, -1, 41, -9, 1.6, P.hairDark);
+            v.sphere(-1, 40, -10, 1.8, P.hair);
+
+            // 귀
+            v.line(-5, 48, 0, -8, 49, 1, 0.8, P.skin);
+            v.line(5, 48, 0, 8, 49, 1, 0.8, P.skin);
+
+            // 등 뒤 검집과 검
+            v.line(-5, 26, -5, 8, 50, -11, 1.4, P.belt); // 검집
+            v.line(-4, 29, -6, 11, 55, -13, 0.8, P.swordSilver); // 검날
+            v.line(10, 54, -13, 15, 62, -15, 0.75, P.swordEdge);
+            v.sphere(-5, 28, -5, 1.7, P.swordBlue); // 손잡이 장식
+            v.box(-7, 27, -7, -3, 29, -5, P.swordBlue);
+
+            // 등 뒤 방패
+            v.ellipsoid(0, 32, -7, 5, 7, 1.7, P.shieldBlue);
+            v.box(-3, 35, -9, 3, 37, -9, P.shieldRed);
+            v.box(-4, 30, -9, 4, 31, -9, P.shieldSilver);
+            v.add(0, 35, -10, P.shieldGold);
+            v.add(-2, 33, -10, P.shieldGold);
+            v.add(2, 33, -10, P.shieldGold);
+
+            // 패러세일 손잡이와 줄
+            v.line(-18, 50, -3, -23, 62, -5, 0.6, P.gliderDark);
+            v.line(18, 50, -3, 23, 62, -5, 0.6, P.gliderDark);
+            v.line(-18, 50, -3, -6, 61, -4, 0.5, P.gliderDark);
+            v.line(18, 50, -3, 6, 61, -4, 0.5, P.gliderDark);
+            v.line(-23, 62, -5, 23, 62, -5, 1.2, P.gliderDark);
+
+            buildParaglider();
+        }
+
+        function buildParaglider() {
+            // 커다란 천 날개. 실제 로고가 아니라 삼각 문양만 살짝 넣음.
+            for(let x=-28; x<=28; x++) {
+                for(let z=-7; z<=7; z++) {
+                    const nx = Math.abs(x) / 28;
+                    const nz = Math.abs(z) / 7;
+                    if(nx + nz*0.42 < 1.05) {
+                        const y = Math.round(64 + Math.cos(nx*Math.PI)*3 - nz*2);
+                        let color = P.gliderTan;
+                        if(Math.abs(z) === 7 || Math.abs(x) > 24) color = P.gliderDark;
+                        if(Math.abs(x) < 2 && z > -5 && z < 6) color = P.gliderRed;
+                        v.add(x, y, z-5, color);
+                    }
+                }
+            }
+            // 삼각 문양
+            for(let row=0; row<6; row++) {
+                for(let col=-row; col<=row; col++) {
+                    v.add(col, 65-row, -1, P.gliderGold);
+                }
+            }
+            for(let row=0; row<4; row++) {
+                for(let col=-row-8; col<=row-8; col++) v.add(col, 64-row, -2, P.gliderGold);
+                for(let col=8-row; col<=8+row; col++) v.add(col, 64-row, -2, P.gliderGold);
+            }
+            // 나무 살대
+            v.line(-27, 62, -5, 0, 66, -5, 0.8, P.gliderDark);
+            v.line(27, 62, -5, 0, 66, -5, 0.8, P.gliderDark);
+            v.line(0, 61, -12, 0, 66, 2, 0.8, P.gliderDark);
+        }
+
+        function buildAdventureDetails() {
+            // 중앙 발판의 빛나는 검 꽂힌 바위
+            v.sphere(-18, 10, 16, 4, P.rockDark);
+            v.line(-18, 13, 16, -18, 27, 16, 0.8, P.swordEdge);
+            v.box(-21, 20, 16, -15, 22, 16, P.swordBlue);
+            v.sphere(-18, 28, 16, 1.4, P.ancientBlue);
+
+            // 모닥불과 냄비
+            const cx = 34, cz = 28, cy = terrainHeight(cx, cz) + 1;
+            v.box(cx-5, cy, cz-4, cx+5, cy, cz+4, P.rockDark);
+            v.line(cx-4, cy+1, cz-3, cx+4, cy+1, cz+3, 1.1, P.woodDark);
+            v.line(cx+4, cy+1, cz-3, cx-4, cy+1, cz+3, 1.1, P.wood);
+            v.sphere(cx, cy+3, cz, 2.4, P.fire);
+            v.sphere(cx, cy+5, cz, 1.4, P.fireHot);
+            v.sphere(cx, cy+1, cz, 1.1, P.ember);
+            v.line(cx-7, cy+2, cz-5, cx-7, cy+11, cz-5, 0.8, P.woodDark);
+            v.line(cx+7, cy+2, cz-5, cx+7, cy+11, cz-5, 0.8, P.woodDark);
+            v.line(cx-7, cy+10, cz-5, cx+7, cy+10, cz-5, 0.8, P.woodDark);
+            v.cylinderY(cx, cy+7, cy+8, cz-5, 3, 0x252525);
+
+            // 보물 상자
+            const bx = 22, bz = -12, by = terrainHeight(22, -12) + 1;
+            v.box(bx-6, by, bz-4, bx+6, by+5, bz+4, P.woodDark);
+            v.box(bx-6, by+5, bz-4, bx+6, by+7, bz+4, P.wood);
+            v.box(bx-1, by+1, bz+4, bx+1, by+5, bz+5, P.shieldGold);
+            v.box(bx-6, by+3, bz+4, bx+6, by+4, bz+5, P.shieldGold);
+
+            // 작은 코로그풍 숲 정령. 귀엽게, 아주 단순하게.
+            const kx = -25, kz = 24, ky = terrainHeight(-25, 24) + 1;
+            v.sphere(kx, ky+3, kz, 3, P.leafLight);
+            v.sphere(kx, ky+5, kz, 2.6, 0xd5b16a);
+            v.add(kx-1, ky+5, kz+3, 0x222222);
+            v.add(kx+1, ky+5, kz+3, 0x222222);
+            v.line(kx-1, ky+3, kz+2, kx-3, ky+1, kz+3, 0.8, P.wood);
+            v.line(kx+1, ky+3, kz+2, kx+3, ky+1, kz+3, 0.8, P.wood);
+            v.sphere(kx+1, ky+8, kz-1, 2.5, P.leaf);
+
+            // 고대 가디언 잔해 느낌
+            const gx = -5, gz = -45, gy = terrainHeight(-5, -45) + 1;
+            v.ellipsoid(gx, gy+4, gz, 8, 4, 6, P.ancientDark);
+            v.sphere(gx, gy+5, gz+5, 2.4, P.ancientBlue);
+            for(let a=0; a<Math.PI*2; a+=Math.PI/3) {
+                v.line(gx+Math.cos(a)*5, gy+3, gz+Math.sin(a)*4, gx+Math.cos(a)*15, gy+1, gz+Math.sin(a)*12, 1.1, P.ancientSlate);
+            }
+            v.box(gx-4, gy+8, gz-3, gx+4, gy+8, gz+3, P.rockDark);
+
+            // 반짝이는 요정/빛 알갱이
+            for(let i=0; i<24; i++) {
+                const x = -30 + Math.random()*18;
+                const y = 15 + Math.random()*25;
+                const z = 16 + Math.random()*18;
+                v.sphere(x, y, z, Math.random() > 0.5 ? 0.8 : 1.1, Math.random() > 0.5 ? P.fairy : P.ancientBlue);
+            }
+
+            // 새 실루엣
+            function addBird(x, y, z, s) {
+                v.line(x, y, z, x-s, y+1, z, 0.45, P.ancientDark);
+                v.line(x, y, z, x+s, y+1, z, 0.45, P.ancientDark);
+            }
+            addBird(-18, 72, -52, 4);
+            addBird(-9, 78, -58, 3);
+            addBird(38, 82, -62, 5);
+        }
+
+        // ==========================================
+        // 5. 비동기 렌더링 및 메쉬 컴파일
+        // ==========================================
+        function buildMeshes() {
+            const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+            const material = new THREE.MeshStandardMaterial({
+                roughness: 0.82,
+                metalness: 0.08
+            });
+
+            const instMesh = new THREE.InstancedMesh(geometry, material, v.voxels.size);
+            instMesh.castShadow = true;
+            instMesh.receiveShadow = true;
+
+            const dummy = new THREE.Object3D();
+            const colorObj = new THREE.Color();
+            let i = 0;
+
+            for (const [key, hex] of v.voxels.entries()) {
+                const [vx, vy, vz] = key.split(',').map(Number);
+                dummy.position.set(vx, vy, vz);
+                dummy.updateMatrix();
+                instMesh.setMatrixAt(i, dummy.matrix);
+                colorObj.setHex(hex);
+                instMesh.setColorAt(i, colorObj);
+                i++;
+            }
+            scene.add(instMesh);
+        }
+
+        setTimeout(() => {
+            generateWorld();
+            buildMeshes();
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 150);
+
+        // ==========================================
+        // 6. 애니메이션 루프 및 이벤트 리스너
+        // ==========================================
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            const time = clock.getElapsedTime();
+            controls.target.y = 26 + Math.sin(time * 1.25) * 1.35;
+            shrineGlow.intensity = 1.15 + Math.sin(time * 2.4) * 0.25;
+            warmCampLight.intensity = 0.85 + Math.sin(time * 7.0) * 0.18;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
