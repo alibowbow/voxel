@@ -1,1 +1,299 @@
-<html></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxel Gallery</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: #0d1b2a;
+            color: #fff;
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+        }
+
+        /* Pixel grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        header {
+            position: relative;
+            z-index: 1;
+            padding: 60px 40px 40px;
+            text-align: center;
+        }
+
+        .logo-cube {
+            display: inline-block;
+            width: 48px;
+            height: 48px;
+            background: #ff1155;
+            border-radius: 6px;
+            box-shadow: 0 0 24px rgba(255,17,85,0.7);
+            animation: pulse 2s ease-in-out infinite alternate;
+            margin-bottom: 20px;
+        }
+
+        @keyframes pulse {
+            from { box-shadow: 0 0 20px rgba(255,17,85,0.5); transform: scale(1); }
+            to   { box-shadow: 0 0 40px rgba(255,17,85,0.9); transform: scale(1.08); }
+        }
+
+        header h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 900;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #ff1155, #00ffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+        }
+
+        header p {
+            font-size: 1rem;
+            color: #888;
+            letter-spacing: 1px;
+        }
+
+        /* Gallery grid */
+        main {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px 40px 80px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 28px;
+        }
+
+        /* Card */
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(255,17,85,0.6);
+            box-shadow: 0 20px 50px rgba(255,17,85,0.2);
+        }
+
+        .card-preview {
+            width: 100%;
+            aspect-ratio: 16/10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #ffcca8;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Mini pixel-art scene inside the pelican card */
+        .card-preview .scene {
+            display: grid;
+            grid-template-columns: repeat(8, 20px);
+            grid-template-rows: repeat(6, 20px);
+            gap: 2px;
+        }
+
+        .px { border-radius: 2px; }
+
+        /* Voxel color chips */
+        .card-preview canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-preview .preview-label {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #00ffff;
+            text-transform: uppercase;
+        }
+
+        .card-info {
+            padding: 20px 22px 22px;
+        }
+
+        .card-info .tag {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #ff1155;
+            margin-bottom: 8px;
+        }
+
+        .card-info h2 {
+            font-size: 1.25rem;
+            font-weight: 900;
+            margin-bottom: 8px;
+            line-height: 1.2;
+        }
+
+        .card-info p {
+            font-size: 0.875rem;
+            color: #aaa;
+            line-height: 1.6;
+        }
+
+        .card-info .cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 16px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #00ffff;
+            letter-spacing: 0.5px;
+        }
+
+        .cta-arrow {
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+        .card:hover .cta-arrow { transform: translateX(4px); }
+
+        /* "Coming soon" placeholder card */
+        .card-placeholder {
+            background: rgba(255,255,255,0.02);
+            border: 1px dashed rgba(255,255,255,0.12);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 50px 30px;
+            gap: 12px;
+            color: #444;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .card-placeholder .plus {
+            font-size: 2.5rem;
+            line-height: 1;
+            color: #333;
+        }
+
+        footer {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 30px;
+            font-size: 0.8rem;
+            color: #444;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-cube"></div>
+        <h1>Voxel Gallery</h1>
+        <p>Procedural 3D voxel art — built with Three.js</p>
+    </header>
+
+    <main>
+
+        <!-- Pelican Card -->
+        <a class="card" href="lib/pelican.html">
+            <div class="card-preview" style="background: linear-gradient(135deg, #ffcca8 60%, #ff9966);">
+                <svg width="180" height="120" viewBox="0 0 180 120" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 16px rgba(0,0,0,0.3));">
+                    <!-- Body -->
+                    <rect x="60" y="40" width="40" height="32" rx="8" fill="#ffffff"/>
+                    <!-- Wing -->
+                    <rect x="40" y="50" width="22" height="10" rx="4" fill="#eeeeee"/>
+                    <rect x="98" y="50" width="22" height="10" rx="4" fill="#eeeeee"/>
+                    <!-- Head -->
+                    <circle cx="82" cy="34" r="14" fill="#ffffff"/>
+                    <!-- Beak -->
+                    <rect x="92" y="32" width="30" height="6" rx="3" fill="#ffa500"/>
+                    <!-- Pouch -->
+                    <path d="M92 38 Q112 50 92 50 Z" fill="#ffcc00"/>
+                    <!-- Eye -->
+                    <circle cx="86" cy="30" r="3" fill="#222"/>
+                    <circle cx="87" cy="29" r="1" fill="#fff"/>
+                    <!-- Captain hat -->
+                    <rect x="70" y="17" width="28" height="4" rx="2" fill="#111"/>
+                    <rect x="74" y="10" width="20" height="10" rx="2" fill="#fff"/>
+                    <rect x="74" y="15" width="20" height="3" fill="#0000aa"/>
+                    <!-- Bike wheels -->
+                    <circle cx="50" cy="95" r="14" fill="none" stroke="#222" stroke-width="4"/>
+                    <circle cx="130" cy="95" r="14" fill="none" stroke="#222" stroke-width="4"/>
+                    <!-- Frame -->
+                    <line x1="80" y1="80" x2="50" y2="95" stroke="#ff1155" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="80" y1="80" x2="130" y2="95" stroke="#ff1155" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="80" y1="80" x2="100" y2="65" stroke="#ff1155" stroke-width="4" stroke-linecap="round"/>
+                    <!-- Handlebar -->
+                    <line x1="95" y1="62" x2="115" y2="58" stroke="#aaa" stroke-width="3" stroke-linecap="round"/>
+                    <!-- Legs -->
+                    <line x1="75" y1="70" x2="60" y2="90" stroke="#ffa500" stroke-width="3" stroke-linecap="round"/>
+                    <!-- Scarf -->
+                    <path d="M68 45 Q55 52 45 48" stroke="#cc0000" stroke-width="4" fill="none" stroke-linecap="round"/>
+                </svg>
+                <div class="preview-label">Interactive 3D</div>
+            </div>
+            <div class="card-info">
+                <div class="tag">Voxel Scene #001</div>
+                <h2>The Pelican Cruiser</h2>
+                <p>A captain pelican riding a neon beach cruiser across a sunset boardwalk — procedurally generated with 6,000+ voxels.</p>
+                <span class="cta">
+                    Open Scene <span class="cta-arrow">→</span>
+                </span>
+            </div>
+        </a>
+
+        <!-- Placeholder cards -->
+        <div class="card-placeholder">
+            <span class="plus">+</span>
+            <span>Coming Soon</span>
+        </div>
+
+        <div class="card-placeholder">
+            <span class="plus">+</span>
+            <span>Coming Soon</span>
+        </div>
+
+    </main>
+
+    <footer>
+        &copy; 2026 Voxel Gallery &mdash; Three.js Procedural Art
+    </footer>
+
+</body>
+</html>
