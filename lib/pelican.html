@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxel Masterpiece: The Pelican Cruiser</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #ffcca8; /* Sunset sky backdrop */
+            font-family: 'Poppins', sans-serif;
+            user-select: none;
+        }
+
+        /* Post-processing vignette */
+        body::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at center, transparent 35%, rgba(20, 10, 30, 0.5) 130%);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* Cinematic Loader */
+        #loader {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #0d1b2a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            color: white;
+            transition: opacity 1s ease, visibility 1s ease;
+        }
+
+        .cube-wrapper {
+            perspective: 800px;
+            margin-bottom: 30px;
+        }
+
+        .cube {
+            width: 50px; height: 50px;
+            background: #ff1155;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 20px rgba(255, 17, 85, 0.6);
+            border-radius: 4px;
+        }
+
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #00ffff; box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);}
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); }
+        }
+
+        #loader h1 {
+            font-weight: 900;
+            letter-spacing: 5px;
+            font-size: 2rem;
+            margin: 0;
+            text-transform: uppercase;
+        }
+
+        #loader p {
+            color: #888;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+
+        /* Overlay UI */
+        #ui {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            background: rgba(10, 20, 30, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+            z-index: 10;
+            pointer-events: none;
+            max-width: 380px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards;
+        }
+
+        @keyframes slideUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .title {
+            font-size: 32px;
+            font-weight: 900;
+            color: #ff1155;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 5px;
+            line-height: 1.1;
+        }
+
+        .subtitle {
+            font-size: 15px;
+            color: #00ffff;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .instructions {
+            font-size: 13.5px;
+            color: #ccc;
+            line-height: 1.8;
+            background: rgba(0,0,0,0.3);
+            padding: 12px 15px;
+            border-radius: 8px;
+        }
+
+        .instructions span {
+            color: #fff;
+            font-weight: bold;
+        }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>Sculpting Voxels</h1>
+        <p>Generating intricate volumetric diorama...</p>
+    </div>
+
+    <div id="ui">
+        <div class="title">The Pelican Cruiser</div>
+        <div class="subtitle">A Procedural Voxel Masterpiece</div>
+        <div class="instructions">
+            <span>🖱️ Left Click:</span> Rotate Camera<br>
+            <span>🖱️ Right Click:</span> Pan View<br>
+            <span>🖱️ Scroll:</span> Zoom In/Out
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ==========================================
+        // 1. SCENE SETUP & RENDERER
+        // ==========================================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffcca8); // Sunset Peach
+        scene.fog = new THREE.FogExp2(0xffcca8, 0.0035);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1000);
+        camera.position.set(-70, 55, 85);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 18, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 250;
+        controls.minDistance = 20;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05; // Ground level constraint
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 1.2;
+
+        // ==========================================
+        // 2. CINEMATIC SUNSET LIGHTING
+        // ==========================================
+        const ambientLight = new THREE.AmbientLight(0xffeedd, 0.45);
+        scene.add(ambientLight);
+
+        const hemiLight = new THREE.HemisphereLight(0xffd1a4, 0x555555, 0.5);
+        scene.add(hemiLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffaa55, 2.5); // Golden Hour Sun
+        sunLight.position.set(-100, 100, 80);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 4096;
+        sunLight.shadow.mapSize.height = 4096;
+        const d = 120;
+        sunLight.shadow.camera.left = -d;
+        sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d;
+        sunLight.shadow.camera.bottom = -d;
+        sunLight.shadow.camera.near = 10;
+        sunLight.shadow.camera.far = 400;
+        sunLight.shadow.bias = -0.0005;
+        scene.add(sunLight);
+
+        const rimLight = new THREE.DirectionalLight(0x00ffff, 0.6); // Cool rim light from ocean
+        rimLight.position.set(80, 20, -80);
+        scene.add(rimLight);
+
+        // ==========================================
+        // 3. ULTRA-FAST VOXEL ENGINE
+        // ==========================================
+        class VoxelBuilder {
+            constructor() {
+                this.voxels = new Map();
+            }
+            
+            add(x, y, z, color) {
+                x = Math.round(x); y = Math.round(y); z = Math.round(z);
+                this.voxels.set(`${x},${y},${z}`, color);
+            }
+
+            box(x1, y1, z1, x2, y2, z2, color) {
+                for(let x=Math.min(x1,x2); x<=Math.max(x1,x2); x++)
+                for(let y=Math.min(y1,y2); y<=Math.max(y1,y2); y++)
+                for(let z=Math.min(z1,z2); z<=Math.max(z1,z2); z++)
+                    this.add(x, y, z, color);
+            }
+
+            sphere(cx, cy, cz, r, color) {
+                let rSq = r*r;
+                let b = Math.ceil(r);
+                for(let x=-b; x<=b; x++)
+                for(let y=-b; y<=b; y++)
+                for(let z=-b; z<=b; z++)
+                    if(x*x+y*y+z*z <= rSq) this.add(cx+x, cy+y, cz+z, color);
+            }
+
+            ellipsoid(cx, cy, cz, rx, ry, rz, color) {
+                for(let x=-rx; x<=rx; x++)
+                for(let y=-ry; y<=ry; y++)
+                for(let z=-rz; z<=rz; z++)
+                    if((x*x)/(rx*rx) + (y*y)/(ry*ry) + (z*z)/(rz*rz) <= 1) this.add(cx+x, cy+y, cz+z, color);
+            }
+
+            cylinderY(cx, cy1, cy2, cz, r, color) {
+                let rSq = r*r;
+                let b = Math.ceil(r);
+                for(let y=Math.min(cy1,cy2); y<=Math.max(cy1,cy2); y++)
+                for(let x=-b; x<=b; x++) for(let z=-b; z<=b; z++)
+                    if(x*x+z*z <= rSq) this.add(cx+x, y, cz+z, color);
+            }
+
+            cylinderZ(cx, cy, cz1, cz2, r, color) {
+                let rSq = r*r;
+                let b = Math.ceil(r);
+                for(let z=Math.min(cz1,cz2); z<=Math.max(cz1,cz2); z++)
+                for(let x=-b; x<=b; x++) for(let y=-b; y<=b; y++)
+                    if(x*x+y*y <= rSq) this.add(cx+x, cy+y, z, color);
+            }
+
+            line(x1, y1, z1, x2, y2, z2, r, color) {
+                let dist = Math.hypot(x2-x1, y2-y1, z2-z1);
+                let steps = Math.ceil(dist * 2.5);
+                for(let i=0; i<=steps; i++) {
+                    let t = steps===0 ? 0 : i/steps;
+                    let cx = x1 + (x2-x1)*t;
+                    let cy = y1 + (y2-y1)*t;
+                    let cz = z1 + (z2-z1)*t;
+                    if(r <= 0.5) this.add(cx, cy, cz, color);
+                    else this.sphere(Math.round(cx), Math.round(cy), Math.round(cz), r, color);
+                }
+            }
+
+            torusZ(cx, cy, cz, R, r, color) {
+                let bound = Math.ceil(R+r);
+                for(let u=-bound; u<=bound; u++)
+                for(let v=-bound; v<=bound; v++)
+                for(let w=-Math.ceil(r); w<=Math.ceil(r); w++) {
+                    let dC = Math.hypot(u,v);
+                    let dT = Math.hypot(dC-R, w);
+                    if(dT <= r) this.add(cx+u, cy+v, cz+w, color);
+                }
+            }
+            
+            torusY(cx, cy, cz, R, r, color) {
+                let bound = Math.ceil(R+r);
+                for(let u=-bound; u<=bound; u++)
+                for(let v=-bound; v<=bound; v++)
+                for(let w=-Math.ceil(r); w<=Math.ceil(r); w++) {
+                    let dC = Math.hypot(u,v);
+                    let dT = Math.hypot(dC-R, w);
+                    if(dT <= r) this.add(cx+u, cy+w, cz+v, color);
+                }
+            }
+        }
+
+        const v = new VoxelBuilder();
+
+        // Color Palette
+        const P = {
+            waterDeep: 0x005c99, waterSurf: 0x0088cc, foam: 0xffffff,
+            sandDry: 0xffdca8, sandWet: 0xe6c280, sandDeep: 0xd2b48c,
+            woodMid: 0x8b5a2b, woodDark: 0x6b4226, woodDeep: 0x4a2e1b,
+            bikeFrame: 0xff1155, bikeTire: 0x222222, bikeMetal: 0xaaaaaa, saddle: 0x5c3a21,
+            pelWhite: 0xffffff, pelShade: 0xeeeeee, pelDark: 0x222222,
+            beakBase: 0xffa500, beakHook: 0xff8c00, pouch: 0xffcc00, legs: 0xffa500,
+            scarf: 0xcc0000,
+            hatBase: 0x111111, hatTop: 0xffffff, hatBand: 0x0000aa, gold: 0xffd700,
+            goggleStrap: 0x222222, goggleFrame: 0x888888, goggleLens: 0x00ffff,
+            basket: 0xd2b48c, baguette: 0xdaa520, boombox: 0x777777, crab: 0xff4500
+        };
+
+        // ==========================================
+        // 4. PROCEDURAL WORLD GENERATION
+        // ==========================================
+        function generateWorld() {
+            buildEnvironment();
+            buildBicycle();
+            buildPelican();
+            buildDetails();
+        }
+
+        function buildEnvironment() {
+            // Optimized Sand & Ocean (Surface level only to maximize performance)
+            for(let x=-80; x<=80; x++) {
+                for(let z=-60; z<=60; z++) {
+                    let baseH = -12 + Math.sin(x*0.05)*2 + Math.cos(z*0.05)*2;
+                    if (z < -10) baseH += (z - -10) * -0.3; // Slope towards the ocean
+                    
+                    let h = Math.floor(baseH + Math.random()*0.5);
+                    if(h < -15) { // Ocean
+                        let wave = Math.sin(x*0.2 + z*0.1)*1.5;
+                        let wy = -15 + Math.floor(wave);
+                        v.add(x, wy, z, wave>1 ? P.foam : P.waterSurf);
+                        v.add(x, wy-1, z, P.waterDeep);
+                    } else { // Beach
+                        v.add(x, h, z, Math.random()>0.95 ? P.sandWet : P.sandDry);
+                        v.add(x, h-1, z, P.sandDeep);
+                        
+                        // Scatter Seashells and Starfish
+                        if(h >= -15 && h < 0 && Math.random() > 0.995) {
+                            if(Math.random() > 0.5) { // Pink starfish
+                                v.add(x, h+1, z, 0xff69b4); v.add(x+1, h+1, z, 0xff69b4); 
+                                v.add(x-1, h+1, z, 0xff69b4); v.add(x, h+1, z+1, 0xff69b4); 
+                                v.add(x, h+1, z-1, 0xff69b4);
+                            } else { // Shell
+                                v.add(x, h+1, z, P.foam);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // The Wooden Boardwalk
+            for(let x=-80; x<=80; x++) {
+                if(Math.abs(x) % 5 === 0) continue; // Plank gaps
+                let c = Math.random() > 0.8 ? P.woodMid : P.woodDark;
+                v.box(x, -1, -15, x, 0, 15, c);
+                // Rusty Nails
+                if(Math.random() > 0.5) v.add(x, 0, -14, 0x333333);
+                if(Math.random() > 0.5) v.add(x, 0, 14, 0x333333);
+            }
+
+            // Pier Support Beams
+            for(let x=-75; x<=75; x+=15) {
+                v.box(x-1, -15, -12, x+1, -2, -10, P.woodDeep);
+                v.box(x-1, -15, 10, x+1, -2, 12, P.woodDeep);
+            }
+            v.box(-80, -3, -12, 80, -2, -10, 0x3e2723); // Cross beams
+            v.box(-80, -3, 10, 80, -2, 12, 0x3e2723);
+
+            // Pier Railing (Backside only to open the view)
+            for(let x=-75; x<=75; x+=15) v.box(x-1, 1, -15, x+1, 8, -13, P.woodDark); // Posts
+            v.box(-80, 8, -15, 80, 9, -13, P.woodMid); // Handrail
+            v.box(-80, 4, -14, 80, 5, -13, P.woodDark); // Midrail
+
+            // Distant Lighthouse (Rising from the water)
+            let ltx = -80, ltz = -45;
+            for(let i=0; i<40; i++) v.sphere(ltx + (Math.random()-0.5)*15, -12 + Math.random()*5, ltz + (Math.random()-0.5)*15, 2 + Math.random()*4, 0x666666); // Rocky outcrop
+            v.cylinderY(ltx, -10, 35, ltz, 7, P.pelWhite); // Tower
+            for(let y=0; y<35; y+=10) v.cylinderY(ltx, y, y+4, ltz, 7.1, 0xcc0000); // Red Stripes
+            v.cylinderY(ltx, 35, 40, ltz, 5, 0x222222); // Light room
+            v.cylinderY(ltx, 36, 39, ltz, 4.5, 0xffff00); // Glowing Beacon
+            v.sphere(ltx, 41, ltz, 3.5, 0xcc0000); // Roof
+
+            // Volumetric Clouds
+            function addCloud(cx, cy, cz, r) {
+                v.sphere(cx, cy, cz, r, P.foam);
+                v.sphere(cx+r*1.2, cy-r*0.2, cz, r*0.8, P.foam);
+                v.sphere(cx-r*1.2, cy-r*0.2, cz, r*0.8, P.foam);
+                v.sphere(cx, cy+r*0.5, cz+r, r*0.7, P.foam);
+                v.sphere(cx, cy+r*0.5, cz-r, r*0.7, P.foam);
+            }
+            addCloud(-50, 75, -50, 6); addCloud(60, 85, -30, 8); addCloud(20, 95, -70, 7);
+        }
+
+        function buildBicycle() {
+            // Wheels
+            v.torusZ(-18, 10, 0, 9, 1.5, P.bikeTire); v.torusZ(18, 10, 0, 9, 1.5, P.bikeTire);
+            v.torusZ(-18, 10, 0, 7.5, 0.5, P.bikeMetal); v.torusZ(18, 10, 0, 7.5, 0.5, P.bikeMetal);
+            
+            // Spokes
+            for(let a=0; a<Math.PI*2; a+=Math.PI/4) {
+                v.line(-18, 10, 0, -18+Math.cos(a)*8, 10+Math.sin(a)*8, 0, 0.5, P.bikeMetal);
+                v.line(18, 10, 0, 18+Math.cos(a)*8, 10+Math.sin(a)*8, 0, 0.5, P.bikeMetal);
+            }
+
+            // Neon Cruiser Frame
+            v.line(0, 10, 0, -6, 28, 0, 1.5, P.bikeFrame); // Seat tube
+            v.line(0, 10, 0, 10, 30, 0, 1.5, P.bikeFrame); // Down tube
+            v.line(-6, 26, 0, 10, 28, 0, 1.5, P.bikeFrame); // Top tube
+            v.line(0, 10, 0, -18, 10, -1.5, 1, P.bikeFrame); // Chainstay L
+            v.line(0, 10, 0, -18, 10, 1.5, 1, P.bikeFrame); // Chainstay R
+            v.line(-6, 26, 0, -18, 10, -1.5, 1, P.bikeFrame); // Seatstay L
+            v.line(-6, 26, 0, -18, 10, 1.5, 1, P.bikeFrame); // Seatstay R
+            v.line(10, 30, 0, 18, 10, -1.5, 1, P.bikeFrame); // Fork L
+            v.line(10, 30, 0, 18, 10, 1.5, 1, P.bikeFrame); // Fork R
+
+            // Fenders
+            for(let a=Math.PI*0.3; a<Math.PI*1.2; a+=0.05) v.box(-18+Math.cos(a)*10-1, 10+Math.sin(a)*10, -2, -18+Math.cos(a)*10+1, 10+Math.sin(a)*10+1, 2, P.bikeFrame);
+            for(let a=Math.PI*0.1; a<Math.PI*0.8; a+=0.05) v.box(18+Math.cos(a)*10-1, 10+Math.sin(a)*10, -2, 18+Math.cos(a)*10+1, 10+Math.sin(a)*10+1, 2, P.bikeFrame);
+
+            // Handlebars & Bell
+            v.line(10, 30, 0, 8, 35, 0, 1, P.bikeMetal); // Stem
+            v.line(8, 35, -6, 8, 35, 6, 1, P.bikeMetal); // Crossbar
+            v.line(8, 35, -6, 5, 33, -8, 1.5, 0x8b4513); // Grip L
+            v.line(8, 35, 6, 5, 33, 8, 1.5, 0x8b4513); // Grip R
+            v.sphere(6, 36, -5, 1.5, P.gold); // Bell
+
+            // Seat
+            v.box(-8, 28, -3, -3, 30, 3, P.saddle);
+            v.line(-7, 28, -2, -7, 26, -2, 0.5, P.bikeMetal); // Springs
+            v.line(-7, 28, 2, -7, 26, 2, 0.5, P.bikeMetal);
+
+            // Drivetrain
+            v.cylinderZ(0, 10, -1.5, 1.5, 3, P.bikeMetal); // Chainring
+            v.cylinderZ(-18, 10, -1.5, 1.5, 1.5, P.bikeMetal); // Rear cog
+            v.line(0, 13, 1.5, -18, 11.5, 1.5, 0.5, P.bikeTire); // Chain top
+            v.line(0, 7, 1.5, -18, 8.5, 1.5, 0.5, P.bikeTire); // Chain bot
+            v.line(0, 10, 2, 3, 15, 3, 0.8, P.bikeMetal); // Crank R
+            v.line(0, 10, -2, -3, 5, -3, 0.8, P.bikeMetal); // Crank L
+            v.box(2, 14, 3, 4, 16, 6, P.bikeTire); // Pedal R
+            v.box(-4, 4, -6, -2, 6, -3, P.bikeTire); // Pedal L
+        }
+
+        function buildPelican() {
+            // Plump Body
+            v.ellipsoid(-6, 38, 0, 9, 11, 8, P.pelWhite);
+            for(let i=0; i<120; i++) { // Feathery shading texture
+                let rx = -6 + (Math.random()-0.5)*18; let ry = 38 + (Math.random()-0.5)*22; let rz = (Math.random()-0.5)*16;
+                if(Math.hypot(rx - -6, (ry-38)*0.8) < 9 && Math.abs(rz) < 7 && Math.random()>0.5) v.add(rx, ry, rz, P.pelShade);
+            }
+            
+            // Tail
+            v.line(-12, 35, 0, -20, 30, 0, 4, P.pelWhite);
+            v.sphere(-22, 28, 0, 2.5, P.pelDark); // Black tip
+
+            // S-Curve Neck
+            for(let t=0; t<=1; t+=0.05) v.sphere(-2 + t*8, 45 + t*10 + Math.sin(t*Math.PI)*4, 0, 4 - t*1.2, P.pelWhite);
+
+            // Head & Eyes
+            v.sphere(6, 56, 0, 4.5, P.pelWhite);
+            v.box(4, 57, 3, 5, 59, 4, P.hatBase); v.add(5, 58, 4, P.pelWhite); // Eye & Glint R
+            v.box(4, 57, -4, 5, 59, -3, P.hatBase); v.add(5, 58, -4, P.pelWhite); // Eye & Glint L
+
+            // Massive Beak
+            v.line(9, 55, 0, 26, 53, 0, 2, P.beakBase);
+            v.sphere(26, 52, 0, 1.5, P.beakHook); // Hook
+
+            // Drooping Pouch
+            for(let i=0; i<16; i++) {
+                let px = 10 + i;
+                let drop = Math.sin((i/15)*Math.PI) * 9;
+                for(let y=0; y<=drop; y++) {
+                    let w = (1.5 - i*0.05) * (1 - y/(drop+0.1)*0.5);
+                    if(w < 0.5) w = 0.5;
+                    v.ellipsoid(px, 54 - y, 0, 0.5, 1, w, y > drop-2 ? P.pouch : P.beakBase);
+                }
+            }
+
+            // Half-swallowed Fish sticking out of pouch
+            v.sphere(18, 48, 0, 2.5, 0x00e5ff); // Fish Body
+            v.box(18, 46, 1, 18, 50, 4, 0x0077be); // Fish Tail
+
+            // Wings holding Handlebars
+            v.line(-6, 40, 7, 5, 33, 8, 2.5, P.pelWhite); // Right wing span
+            v.line(5, 33, 8, 7, 34, 8, 1.5, P.pelShade); // Wing tips gripping
+            v.line(-4, 38, 8, 3, 31, 9, 1.5, P.pelDark); // Black trailing feathers
+            
+            v.line(-6, 40, -7, 5, 33, -8, 2.5, P.pelWhite); // Left wing span
+            v.line(5, 33, -8, 7, 34, -8, 1.5, P.pelShade); // Wing tips gripping
+            v.line(-4, 38, -8, 3, 31, -9, 1.5, P.pelDark); // Black trailing feathers
+
+            // Webbed Feet Pedaling
+            v.line(-4, 30, 3, -1, 23, 5, 1.5, P.pelWhite); // R Thigh
+            v.line(-1, 23, 5, 3, 15, 4, 1, P.legs); // R Calf
+            v.box(2, 14, 3, 4, 15, 5, P.legs); // R Webbed foot
+
+            v.line(-4, 30, -3, -2, 18, -5, 1.5, P.pelWhite); // L Thigh
+            v.line(-2, 18, -5, -3, 6, -4, 1, P.legs); // L Calf
+            v.box(-4, 5, -5, -2, 6, -3, P.legs); // L Webbed foot
+
+            // Captain's Hat
+            v.cylinderY(5, 60, 60.5, 0, 4.5, P.hatBase); // Brim
+            v.cylinderY(5, 61, 63, 0, 3.5, P.hatTop); // Crown
+            v.cylinderY(5, 61, 61.5, 0, 3.6, P.hatBand); // Band
+            v.add(8.6, 61, 0, P.gold); // Badge
+
+            // Aviator Goggles
+            v.ellipsoid(6, 57, 0, 4.2, 1.5, 4.2, P.goggleStrap); // Strap
+            v.cylinderZ(5, 57, 3, 4.5, 3, P.goggleFrame); // Frame R
+            v.cylinderZ(5, 57, -4.5, -3, 3, P.goggleFrame); // Frame L
+            v.cylinderZ(5, 57, 4.5, 5, 2.5, P.goggleLens); // Lens R
+            v.cylinderZ(5, 57, -5, -4.5, 2.5, P.goggleLens); // Lens L
+
+            // Flowing Red Scarf
+            v.torusY(-2, 45, 0, 5, 1.5, P.scarf); // Neck wrap
+            v.line(-3, 45, 2, -15, 50, 6, 1.5, P.scarf); // Trail 1
+            v.line(-3, 44, 1, -12, 42, 4, 1.2, 0xaa0000); // Trail 2
+        }
+
+        function buildDetails() {
+            // Front Basket
+            for(let bx=12; bx<=18; bx++) {
+                for(let by=28; by<=34; by++) {
+                    for(let bz=-4; bz<=4; bz++) {
+                        if(bx===12 || bx===18 || bz===-4 || bz===4 || by===28) {
+                            v.add(bx, by, bz, (bx+by+bz)%2===0 ? P.basket : 0xcdaa7d); // Weave pattern
+                        }
+                    }
+                }
+            }
+            // Baguettes and Flowers
+            v.line(14, 29, -2, 18, 38, -5, 1.5, P.baguette); v.line(14, 29, 2, 17, 36, 4, 1.2, P.baguette);
+            v.sphere(16, 35, 1, 2, 0xff1493); v.sphere(14, 34, 2, 1.5, 0xffff00); v.sphere(15, 35, -1, 1.8, 0x8a2be2);
+
+            // Boombox on rear rack
+            v.line(-6, 26, 0, -18, 19, 0, 0.8, P.bikeMetal); v.line(0, 10, 0, -18, 19, 0, 0.8, P.bikeMetal); // Rack struts
+            v.box(-20, 19, -3, -12, 19, 3, P.bikeMetal); // Platform
+            v.box(-22, 20, -3, -13, 26, 3, P.boombox); // Body
+            v.box(-21, 21, 3, -18, 25, 4, 0x222222); v.box(-17, 21, 3, -14, 25, 4, 0x222222); // Speakers
+            v.box(-21, 22, 3, -18, 24, 3, 0x999999); // Cassette
+            v.box(-19, 26, -1, -16, 28, 1, 0x555555); // Handle
+            v.line(-20, 26, 0, -25, 34, -2, 0.5, 0xaaaaaa); // Antenna
+
+            // Scuttling Crab
+            let cx=-25, cy=1, cz=10;
+            v.box(cx-2, cy, cz-2, cx+2, cy+2, cz+2, P.crab); // Body
+            v.line(cx, cy+2, cz-1, cx, cy+4, cz-2, 0.5, P.crab); v.add(cx, cy+4, cz-2, 0x000000); // Eye L
+            v.line(cx, cy+2, cz+1, cx, cy+4, cz+2, 0.5, P.crab); v.add(cx, cy+4, cz+2, 0x000000); // Eye R
+            v.box(cx+2, cy, cz-4, cx+4, cy+1, cz-2, P.crab); v.box(cx+2, cy, cz+2, cx+4, cy+1, cz+4, P.crab); // Claws
+
+            // Dropped Ice Cream
+            v.line(-40, 1, 5, -36, 1, 8, 1.5, 0xd2691e); // Cone
+            v.sphere(-35, 2, 9, 2, 0xff69b4); // Scoop
+            v.box(-36, 0, 8, -33, 0, 11, 0xff69b4); // Splat
+
+            // Palm Tree
+            let ptx = 45, ptz = -25, pty = -10;
+            for(let i=0; i<30; i++) {
+                v.cylinderY(ptx, pty, pty+1, ptz, 3 - i*0.05, 0x5c4033);
+                pty++; ptx += Math.sin(i*0.2)*0.8; ptz += Math.cos(i*0.1)*0.5;
+            }
+            for(let a=0; a<Math.PI*2; a+=Math.PI/3) { // Leaves
+                let lx = ptx, ly = pty, lz = ptz, dx = Math.cos(a), dz = Math.sin(a);
+                for(let i=0; i<15; i++) {
+                    lx += dx*1.5; lz += dz*1.5; ly += Math.sin(i*0.3)*1.5 - 0.5;
+                    v.sphere(lx, ly, lz, 1.5, 0x2e8b57);
+                    v.line(lx, ly, lz, lx - dz*3, ly-1, lz + dx*3, 0.5, 0x228b22);
+                    v.line(lx, ly, lz, lx + dz*3, ly-1, lz - dx*3, 0.5, 0x228b22);
+                }
+            }
+            v.sphere(ptx+2, pty-2, ptz+2, 2, 0x3e2723); v.sphere(ptx-2, pty-3, ptz-1, 2, 0x3e2723); // Coconuts
+
+            // Seagulls perched on railings
+            function addSeagull(x, y, z) {
+                v.ellipsoid(x, y+2, z, 2.5, 1.5, 2, P.pelWhite); // Body
+                v.sphere(x+1.5, y+4, z, 1.5, P.pelWhite); // Head
+                v.line(x+2.5, y+4, z, x+4.5, y+3.5, z, 0.5, P.beakBase); // Beak
+                v.box(x-3, y+1, z-1, x-1, y+2, z+1, P.bikeMetal); // Tail
+            }
+            addSeagull(-45, 9, -15); addSeagull(30, 9, -15);
+        }
+
+        // ==========================================
+        // 5. ASYNC RENDERING & MESH COMPILATION
+        // ==========================================
+        function buildMeshes() {
+            // Slight scaling (0.95) enhances the voxel aesthetic with crisp gridlines
+            const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+            const material = new THREE.MeshStandardMaterial({
+                roughness: 0.85,
+                metalness: 0.1,
+            });
+
+            const instMesh = new THREE.InstancedMesh(geometry, material, v.voxels.size);
+            instMesh.castShadow = true;
+            instMesh.receiveShadow = true;
+
+            const dummy = new THREE.Object3D();
+            const colorObj = new THREE.Color();
+            let i = 0;
+
+            for (const [key, hexStr] of v.voxels.entries()) {
+                const [vx, vy, vz] = key.split(',').map(Number);
+                
+                dummy.position.set(vx, vy, vz);
+                dummy.updateMatrix();
+                instMesh.setMatrixAt(i, dummy.matrix);
+                
+                colorObj.setHex(hexStr);
+                instMesh.setColorAt(i, colorObj);
+                i++;
+            }
+            scene.add(instMesh);
+        }
+
+        // Execute non-blocking generation to ensure Loading UI paints first
+        setTimeout(() => {
+            generateWorld();
+            buildMeshes();
+            
+            // Graceful transition
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 150);
+
+        // ==========================================
+        // 6. ANIMATION LOOP & EVENT LISTENERS
+        // ==========================================
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); // Drives auto-rotation
+
+            // Subtle bobbing of camera target for cinematic diorama feel
+            const time = clock.getElapsedTime();
+            controls.target.y = 18 + Math.sin(time * 1.5) * 1.5;
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
