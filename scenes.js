@@ -200,7 +200,7 @@ window.VOXEL_SCENES = [
         title: '네온 시티',
         desc: '비에 젖은 사이버펑크 거리 — 네온 간판, 홀로그램 광고, 하늘을 나는 자동차와 고가 모노레일이 있는 야간 복셀 디오라마.',
         badge: 'Animated 3D',
-        gradient: 'linear-gradient(180deg, #05060f 0%, #180b34 55%, #2a1250 100%)',
+        gradient: 'linear-gradient(180deg, #0e1236 0%, #241448 55%, #3a1c66 100%)',
         accent: '#ff2d95',
         cta: '#1cf0ff',
         tags: ['city', 'cyberpunk', 'animated', 'night'],
@@ -216,7 +216,7 @@ window.VOXEL_SCENES = [
                 <circle cx="120" cy="14" r="1" fill="#fff"/>
                 <circle cx="40" cy="30" r="1" fill="#fff"/>
                 <!-- Distant silhouettes -->
-                <rect x="0" y="60" width="190" height="66" fill="#0d1020"/>
+                <rect x="0" y="60" width="190" height="66" fill="#161d3c"/>
                 <!-- Buildings -->
                 <rect x="16" y="46" width="20" height="80" fill="#23252e"/>
                 <rect x="40" y="30" width="16" height="96" fill="#2b2f3a"/>
