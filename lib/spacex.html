@@ -254,6 +254,7 @@
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
 
     // ==========================================
     // 1. 기본 씬
@@ -369,117 +370,8 @@
       return materialCache.get(key);
     }
 
-    class VoxelBuilder {
-      constructor() {
-        this.voxels = new Map();
-      }
-
-      add(x, y, z, color) {
-        const vx = Math.round(x), vy = Math.round(y), vz = Math.round(z);
-        this.voxels.set(`${vx},${vy},${vz}`, color);
-      }
-
-      box(x1, y1, z1, x2, y2, z2, color) {
-        const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
-        const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
-        const minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
-        for (let x = minX; x <= maxX; x++)
-          for (let y = minY; y <= maxY; y++)
-            for (let z = minZ; z <= maxZ; z++) this.add(x, y, z, color);
-      }
-
-      sphere(cx, cy, cz, r, color) {
-        const b = Math.ceil(r);
-        const rr = r * r;
-        for (let x = -b; x <= b; x++)
-          for (let y = -b; y <= b; y++)
-            for (let z = -b; z <= b; z++)
-              if (x*x + y*y + z*z <= rr) this.add(cx + x, cy + y, cz + z, color);
-      }
-
-      ellipsoid(cx, cy, cz, rx, ry, rz, color) {
-        for (let x = -rx; x <= rx; x++)
-          for (let y = -ry; y <= ry; y++)
-            for (let z = -rz; z <= rz; z++)
-              if ((x*x)/(rx*rx) + (y*y)/(ry*ry) + (z*z)/(rz*rz) <= 1) this.add(cx + x, cy + y, cz + z, color);
-      }
-
-      cylinderY(cx, y1, y2, cz, r, color, surfaceOnly = false) {
-        const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
-        const b = Math.ceil(r);
-        const rr = r * r;
-        const inner = Math.max(0, r - 1.2);
-        const ii = inner * inner;
-        for (let y = minY; y <= maxY; y++) {
-          for (let x = -b; x <= b; x++) {
-            for (let z = -b; z <= b; z++) {
-              const d = x*x + z*z;
-              if (d <= rr && (!surfaceOnly || d >= ii || y === minY || y === maxY)) this.add(cx + x, y, cz + z, color);
-            }
-          }
-        }
-      }
-
-      cylinderZ(cx, cy, z1, z2, r, color) {
-        const minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
-        const b = Math.ceil(r);
-        const rr = r * r;
-        for (let z = minZ; z <= maxZ; z++)
-          for (let x = -b; x <= b; x++)
-            for (let y = -b; y <= b; y++)
-              if (x*x + y*y <= rr) this.add(cx + x, cy + y, z, color);
-      }
-
-      line(x1, y1, z1, x2, y2, z2, r, color) {
-        const dist = Math.hypot(x2 - x1, y2 - y1, z2 - z1);
-        const steps = Math.max(1, Math.ceil(dist * 2.2));
-        for (let i = 0; i <= steps; i++) {
-          const t = i / steps;
-          const x = x1 + (x2 - x1) * t;
-          const y = y1 + (y2 - y1) * t;
-          const z = z1 + (z2 - z1) * t;
-          if (r <= 0.5) this.add(x, y, z, color);
-          else this.sphere(Math.round(x), Math.round(y), Math.round(z), r, color);
-        }
-      }
-
-      ringY(cx, cy, cz, radius, thickness, color) {
-        const b = Math.ceil(radius + thickness);
-        const outer = (radius + thickness) * (radius + thickness);
-        const inner = Math.max(0, radius - thickness) * Math.max(0, radius - thickness);
-        for (let x = -b; x <= b; x++) {
-          for (let z = -b; z <= b; z++) {
-            const d = x*x + z*z;
-            if (d <= outer && d >= inner) this.add(cx + x, cy, cz + z, color);
-          }
-        }
-      }
-    }
-
-    function buildInstancedMesh(builder, materialOptions = {}) {
-      const geometry = new THREE.BoxGeometry(0.96, 0.96, 0.96);
-      const baseMat = new THREE.MeshStandardMaterial({
-        roughness: materialOptions.roughness ?? 0.82,
-        metalness: materialOptions.metalness ?? 0.08
-      });
-      const mesh = new THREE.InstancedMesh(geometry, baseMat, builder.voxels.size);
-      mesh.castShadow = materialOptions.cast ?? true;
-      mesh.receiveShadow = materialOptions.receive ?? true;
-      const dummy = new THREE.Object3D();
-      const color = new THREE.Color();
-      let i = 0;
-      for (const [key, hex] of builder.voxels.entries()) {
-        const [x, y, z] = key.split(',').map(Number);
-        dummy.position.set(x, y, z);
-        dummy.updateMatrix();
-        mesh.setMatrixAt(i, dummy.matrix);
-        color.setHex(hex);
-        mesh.setColorAt(i, color);
-        i++;
-      }
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-      return mesh;
+    function buildInstancedMesh(builder, opts = {}) {
+      return buildVoxelMesh(THREE, builder, { size: 0.96, ...opts });
     }
 
     // 일반 박스: 움직이는 팔, UI 라이트, 연기용
@@ -536,7 +428,7 @@
     // ==========================================
     // 4. 정적인 월드 생성
     // ==========================================
-    const worldBuilder = new VoxelBuilder();
+    const worldBuilder = new VoxelBuilder({ lineDensity: 2.2 });
 
     function buildEnvironment() {
       // 바닥: 해변형 발사장 주변
@@ -690,7 +582,7 @@
     const rocketGroup = new THREE.Group();
     scene.add(rocketGroup);
 
-    const rocketBuilder = new VoxelBuilder();
+    const rocketBuilder = new VoxelBuilder({ lineDensity: 2.2 });
 
     function rocketCylinder(y1, y2, radius, colorFn) {
       const r = Math.ceil(radius);

@@ -135,8 +135,8 @@
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
             }
         }
     </script>
@@ -162,6 +162,7 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
 
         // ==========================================
         // 1. SCENE SETUP & RENDERER
@@ -223,91 +224,6 @@
         // ==========================================
         // 3. ULTRA-FAST VOXEL ENGINE
         // ==========================================
-        class VoxelBuilder {
-            constructor() {
-                this.voxels = new Map();
-            }
-            
-            add(x, y, z, color) {
-                x = Math.round(x); y = Math.round(y); z = Math.round(z);
-                this.voxels.set(`${x},${y},${z}`, color);
-            }
-
-            box(x1, y1, z1, x2, y2, z2, color) {
-                for(let x=Math.min(x1,x2); x<=Math.max(x1,x2); x++)
-                for(let y=Math.min(y1,y2); y<=Math.max(y1,y2); y++)
-                for(let z=Math.min(z1,z2); z<=Math.max(z1,z2); z++)
-                    this.add(x, y, z, color);
-            }
-
-            sphere(cx, cy, cz, r, color) {
-                let rSq = r*r;
-                let b = Math.ceil(r);
-                for(let x=-b; x<=b; x++)
-                for(let y=-b; y<=b; y++)
-                for(let z=-b; z<=b; z++)
-                    if(x*x+y*y+z*z <= rSq) this.add(cx+x, cy+y, cz+z, color);
-            }
-
-            ellipsoid(cx, cy, cz, rx, ry, rz, color) {
-                for(let x=-rx; x<=rx; x++)
-                for(let y=-ry; y<=ry; y++)
-                for(let z=-rz; z<=rz; z++)
-                    if((x*x)/(rx*rx) + (y*y)/(ry*ry) + (z*z)/(rz*rz) <= 1) this.add(cx+x, cy+y, cz+z, color);
-            }
-
-            cylinderY(cx, cy1, cy2, cz, r, color) {
-                let rSq = r*r;
-                let b = Math.ceil(r);
-                for(let y=Math.min(cy1,cy2); y<=Math.max(cy1,cy2); y++)
-                for(let x=-b; x<=b; x++) for(let z=-b; z<=b; z++)
-                    if(x*x+z*z <= rSq) this.add(cx+x, y, cz+z, color);
-            }
-
-            cylinderZ(cx, cy, cz1, cz2, r, color) {
-                let rSq = r*r;
-                let b = Math.ceil(r);
-                for(let z=Math.min(cz1,cz2); z<=Math.max(cz1,cz2); z++)
-                for(let x=-b; x<=b; x++) for(let y=-b; y<=b; y++)
-                    if(x*x+y*y <= rSq) this.add(cx+x, cy+y, z, color);
-            }
-
-            line(x1, y1, z1, x2, y2, z2, r, color) {
-                let dist = Math.hypot(x2-x1, y2-y1, z2-z1);
-                let steps = Math.ceil(dist * 2.5);
-                for(let i=0; i<=steps; i++) {
-                    let t = steps===0 ? 0 : i/steps;
-                    let cx = x1 + (x2-x1)*t;
-                    let cy = y1 + (y2-y1)*t;
-                    let cz = z1 + (z2-z1)*t;
-                    if(r <= 0.5) this.add(cx, cy, cz, color);
-                    else this.sphere(Math.round(cx), Math.round(cy), Math.round(cz), r, color);
-                }
-            }
-
-            torusZ(cx, cy, cz, R, r, color) {
-                let bound = Math.ceil(R+r);
-                for(let u=-bound; u<=bound; u++)
-                for(let v=-bound; v<=bound; v++)
-                for(let w=-Math.ceil(r); w<=Math.ceil(r); w++) {
-                    let dC = Math.hypot(u,v);
-                    let dT = Math.hypot(dC-R, w);
-                    if(dT <= r) this.add(cx+u, cy+v, cz+w, color);
-                }
-            }
-            
-            torusY(cx, cy, cz, R, r, color) {
-                let bound = Math.ceil(R+r);
-                for(let u=-bound; u<=bound; u++)
-                for(let v=-bound; v<=bound; v++)
-                for(let w=-Math.ceil(r); w<=Math.ceil(r); w++) {
-                    let dC = Math.hypot(u,v);
-                    let dT = Math.hypot(dC-R, w);
-                    if(dT <= r) this.add(cx+u, cy+w, cz+v, color);
-                }
-            }
-        }
-
         const v = new VoxelBuilder();
 
         // Color Palette
@@ -600,33 +516,7 @@
         // 5. ASYNC RENDERING & MESH COMPILATION
         // ==========================================
         function buildMeshes() {
-            // Slight scaling (0.95) enhances the voxel aesthetic with crisp gridlines
-            const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
-            const material = new THREE.MeshStandardMaterial({
-                roughness: 0.85,
-                metalness: 0.1,
-            });
-
-            const instMesh = new THREE.InstancedMesh(geometry, material, v.voxels.size);
-            instMesh.castShadow = true;
-            instMesh.receiveShadow = true;
-
-            const dummy = new THREE.Object3D();
-            const colorObj = new THREE.Color();
-            let i = 0;
-
-            for (const [key, hexStr] of v.voxels.entries()) {
-                const [vx, vy, vz] = key.split(',').map(Number);
-                
-                dummy.position.set(vx, vy, vz);
-                dummy.updateMatrix();
-                instMesh.setMatrixAt(i, dummy.matrix);
-                
-                colorObj.setHex(hexStr);
-                instMesh.setColorAt(i, colorObj);
-                i++;
-            }
-            scene.add(instMesh);
+            scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.85, metalness: 0.1 }));
         }
 
         // Execute non-blocking generation to ensure Loading UI paints first
