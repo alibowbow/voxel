@@ -194,4 +194,69 @@ window.VOXEL_SCENES = [
                 <circle cx="168" cy="14" r="9" fill="#fff9cf" opacity="0.95"/>
             </svg>`,
     },
+    {
+        file: 'lib/neoncity.html',
+        index: '004',
+        title: '네온 시티',
+        desc: '비에 젖은 사이버펑크 거리 — 네온 간판, 홀로그램 광고, 하늘을 나는 자동차와 고가 모노레일이 있는 야간 복셀 디오라마.',
+        badge: 'Animated 3D',
+        gradient: 'linear-gradient(180deg, #05060f 0%, #180b34 55%, #2a1250 100%)',
+        accent: '#ff2d95',
+        cta: '#1cf0ff',
+        tags: ['city', 'cyberpunk', 'animated', 'night'],
+        preview: `
+            <svg width="190" height="126" viewBox="0 0 190 126" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 18px rgba(0,0,0,0.45));">
+                <!-- Moon -->
+                <circle cx="158" cy="24" r="11" fill="#f3f0ff" opacity="0.95"/>
+                <circle cx="153" cy="20" r="4" fill="#dad4f0" opacity="0.9"/>
+                <!-- Stars -->
+                <circle cx="24" cy="18" r="1.2" fill="#fff"/>
+                <circle cx="52" cy="12" r="1" fill="#fff"/>
+                <circle cx="88" cy="22" r="1.2" fill="#fff"/>
+                <circle cx="120" cy="14" r="1" fill="#fff"/>
+                <circle cx="40" cy="30" r="1" fill="#fff"/>
+                <!-- Distant silhouettes -->
+                <rect x="0" y="60" width="190" height="66" fill="#0d1020"/>
+                <!-- Buildings -->
+                <rect x="16" y="46" width="20" height="80" fill="#23252e"/>
+                <rect x="40" y="30" width="16" height="96" fill="#2b2f3a"/>
+                <rect x="60" y="58" width="18" height="68" fill="#1e2733"/>
+                <rect x="96" y="24" width="22" height="102" fill="#23252e"/>
+                <rect x="124" y="50" width="16" height="76" fill="#2b2f3a"/>
+                <rect x="146" y="40" width="20" height="86" fill="#1e2733"/>
+                <!-- Neon trims -->
+                <rect x="40" y="30" width="16" height="2.5" fill="#1cf0ff"/>
+                <rect x="96" y="24" width="22" height="2.5" fill="#ff2d95"/>
+                <rect x="146" y="40" width="20" height="2.5" fill="#ffe24a"/>
+                <rect x="16" y="46" width="2" height="80" fill="#9b5cff"/>
+                <rect x="140" y="50" width="2" height="76" fill="#54ff9b"/>
+                <!-- Lit windows -->
+                <g fill="#ffcf7a">
+                    <rect x="20" y="52" width="3" height="3"/><rect x="28" y="60" width="3" height="3"/>
+                    <rect x="44" y="40" width="3" height="3"/><rect x="50" y="54" width="3" height="3"/>
+                    <rect x="100" y="34" width="3" height="3"/><rect x="110" y="48" width="3" height="3"/>
+                    <rect x="128" y="58" width="3" height="3"/><rect x="150" y="50" width="3" height="3"/>
+                    <rect x="160" y="64" width="3" height="3"/><rect x="64" y="66" width="3" height="3"/>
+                </g>
+                <g fill="#6ff5ff">
+                    <rect x="24" y="66" width="3" height="3"/><rect x="104" y="60" width="3" height="3"/>
+                    <rect x="46" y="66" width="3" height="3"/><rect x="154" y="78" width="3" height="3"/>
+                </g>
+                <g fill="#ff8ad8">
+                    <rect x="32" y="74" width="3" height="3"/><rect x="114" y="72" width="3" height="3"/>
+                </g>
+                <!-- Elevated rail -->
+                <rect x="0" y="88" width="190" height="3" fill="#1cf0ff" opacity="0.8"/>
+                <!-- Wet street + reflections -->
+                <rect x="0" y="112" width="190" height="14" fill="#14161c"/>
+                <rect x="30" y="115" width="6" height="8" fill="#ff2d95" opacity="0.5"/>
+                <rect x="96" y="116" width="6" height="7" fill="#1cf0ff" opacity="0.5"/>
+                <rect x="150" y="115" width="5" height="8" fill="#ffe24a" opacity="0.4"/>
+                <!-- Flying car with light trail -->
+                <ellipse cx="70" cy="40" rx="7" ry="2.6" fill="#12161f"/>
+                <rect x="66" y="38" width="5" height="2" fill="#39f0ff"/>
+                <circle cx="63" cy="40" r="1.6" fill="#1cf0ff"/>
+                <line x1="63" y1="40" x2="50" y2="42" stroke="#1cf0ff" stroke-width="1.2" opacity="0.5"/>
+            </svg>`,
+    },
 ];

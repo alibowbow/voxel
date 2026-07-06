@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 네온 시티</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden;
+            background: linear-gradient(#05060f 0%, #0a0e22 45%, #241041 100%);
+            font-family: 'Noto Sans KR', sans-serif;
+            user-select: none;
+        }
+        body::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 34%, rgba(4, 2, 14, 0.62) 130%);
+            pointer-events: none;
+            z-index: 5;
+        }
+        #loader {
+            position: absolute; inset: 0;
+            background: #05060f;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease;
+        }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube {
+            width: 50px; height: 50px;
+            background: #ff2d95;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 26px rgba(255, 45, 149, 0.8);
+            border-radius: 4px;
+        }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #1cf0ff; box-shadow: 0 0 26px rgba(28, 240, 255, 0.8); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); }
+        }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; text-transform: uppercase; }
+        #loader p { color: #8a7fb5; font-size: 1rem; margin-top: 10px; }
+
+        #ui {
+            position: absolute; bottom: 40px; left: 40px;
+            background: rgba(10, 6, 26, 0.62);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: #fff;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.45);
+            z-index: 10; pointer-events: none; max-width: 420px;
+            opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards;
+        }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title {
+            font-size: 32px; font-weight: 900; color: #ff2d95;
+            text-transform: uppercase; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2;
+        }
+        .subtitle { font-size: 15px; color: #1cf0ff; font-weight: 700; margin-bottom: 20px; letter-spacing: 0.5px; }
+        .instructions {
+            font-size: 13.5px; color: #d6d0ef; line-height: 1.8;
+            background: rgba(0,0,0,0.28); padding: 12px 15px; border-radius: 8px;
+        }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>비 내리는 네온 거리를 밝히고 있습니다</p>
+    </div>
+
+    <div id="ui">
+        <div class="title">네온 시티</div>
+        <div class="subtitle">비에 젖은 거리 · 홀로그램 광고 · 하늘을 나는 차</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        // ==========================================
+        // 1. 씬 · 렌더러
+        // ==========================================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0e22);
+        scene.fog = new THREE.FogExp2(0x120a2a, 0.0042);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1400);
+        camera.position.set(-92, 74, 104);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 22, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 300;
+        controls.minDistance = 30;
+        controls.maxPolarAngle = Math.PI / 2 + 0.04;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.85;
+
+        // ==========================================
+        // 2. 야간 조명 + 네온 포인트 라이트
+        // ==========================================
+        scene.add(new THREE.AmbientLight(0x33304f, 0.55));
+        scene.add(new THREE.HemisphereLight(0x2a3a6a, 0x08060f, 0.5));
+
+        const moon = new THREE.DirectionalLight(0x9db4ff, 0.72);
+        moon.position.set(-80, 130, 60);
+        moon.castShadow = true;
+        moon.shadow.mapSize.set(4096, 4096);
+        const d = 150;
+        moon.shadow.camera.left = -d; moon.shadow.camera.right = d;
+        moon.shadow.camera.top = d; moon.shadow.camera.bottom = -d;
+        moon.shadow.camera.near = 10; moon.shadow.camera.far = 460;
+        moon.shadow.bias = -0.0005;
+        scene.add(moon);
+
+        // 거리를 물들이는 네온 발광
+        const neonLights = [];
+        function addNeon(x, y, z, color, intensity, range, pulse = 0) {
+            const light = new THREE.PointLight(color, intensity, range, 2);
+            light.position.set(x, y, z);
+            scene.add(light);
+            neonLights.push({ light, base: intensity, pulse, phase: Math.random() * Math.PI * 2 });
+        }
+        addNeon(-16, 10, -16, 0xff2d95, 2.4, 70, 0.5);
+        addNeon(20, 12, 18, 0x1cf0ff, 2.2, 70, 0.35);
+        addNeon(28, 8, -24, 0x9b5cff, 1.8, 60, 0.6);
+        addNeon(-26, 9, 24, 0xffe24a, 1.6, 55, 0.4);
+        addNeon(0, 6, 0, 0xff6ad5, 1.5, 48, 0.7);
+
+        // ==========================================
+        // 3. 팔레트 · 복셀 빌더 (공유 엔진)
+        // ==========================================
+        const P = {
+            asphalt: 0x14161c, asphaltWet: 0x1b2130, laneMark: 0xf5d341,
+            puddleC: 0x1cf0ff, puddleM: 0xff2d95, curb: 0x2a2d34, drain: 0x0c0d12,
+            buildA: 0x23252e, buildB: 0x2b2f3a, buildC: 0x1e2733, buildD: 0x15171d,
+            roof: 0x101218, tank: 0x33373f, antenna: 0x44484f,
+            winWarm: 0xffcf7a, winCyan: 0x6ff5ff, winMag: 0xff8ad8, winWhite: 0xfdfdff, winOff: 0x0f1118,
+            neonPink: 0xff2d95, neonCyan: 0x1cf0ff, neonPurple: 0x9b5cff, neonYellow: 0xffe24a, neonGreen: 0x54ff9b, neonRed: 0xff3b3b,
+            lampPole: 0x2a2e36, lampHead: 0xfff2c4,
+            carBody: 0x12161f, carGlass: 0x39f0ff, carRed: 0xff3b3b, carWhite: 0xfff7d6,
+            hologram: 0x59d8ff, holoPink: 0xff7ad0,
+            railPillar: 0x22242c, railDeck: 0x2e323c, trainBody: 0xe8edf5, trainStripe: 0xff2d95,
+            moon: 0xf3f0ff, star: 0xfbfbff, silhouette: 0x0d1020,
+        };
+
+        const v = new VoxelBuilder();
+
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(70707);
+
+        // 속이 빈 상자(외벽만) — 고층 빌딩 복셀 수를 아낀다
+        function shell(x1, y1, z1, x2, y2, z2, color) {
+            v.box(x1, y1, z1, x2, y1, z2, color);
+            v.box(x1, y2, z1, x2, y2, z2, color);
+            v.box(x1, y1, z1, x2, y2, z1, color);
+            v.box(x1, y1, z2, x2, y2, z2, color);
+            v.box(x1, y1, z1, x1, y2, z2, color);
+            v.box(x2, y1, z1, x2, y2, z2, color);
+        }
+
+        // ==========================================
+        // 4. 월드 생성
+        // ==========================================
+        function generateWorld() {
+            buildGround();
+            buildCity();
+            buildStreetProps();
+            buildElevatedRail();
+            buildSky();
+        }
+
+        function buildGround() {
+            for (let x = -70; x <= 70; x++) {
+                for (let z = -70; z <= 70; z++) {
+                    const onRoad = Math.abs(x) < 8 || Math.abs(z) < 8;
+                    let c = onRoad ? (rng() > 0.82 ? P.asphaltWet : P.asphalt) : (rng() > 0.7 ? P.curb : P.asphaltWet);
+                    v.add(x, 0, z, c);
+
+                    // 차선 중앙선 (도로 중심을 따라 점선)
+                    if (Math.abs(z) < 1 && Math.abs(x) > 8 && (Math.floor((x + 100) / 3) % 2 === 0)) c = P.laneMark, v.add(x, 1, z, P.laneMark);
+                    if (Math.abs(x) < 1 && Math.abs(z) > 8 && (Math.floor((z + 100) / 3) % 2 === 0)) v.add(x, 1, z, P.laneMark);
+
+                    // 젖은 노면의 네온 반사(웅덩이)
+                    if (onRoad && rng() > 0.982) {
+                        v.add(x, 1, z, rng() > 0.5 ? P.puddleC : P.puddleM);
+                    }
+                }
+            }
+            // 인도 연석 (교차로 가장자리)
+            for (let x = -70; x <= 70; x++) {
+                if (Math.abs(x) >= 8) { v.add(x, 1, 8, P.curb); v.add(x, 1, -8, P.curb); }
+            }
+            for (let z = -70; z <= 70; z++) {
+                if (Math.abs(z) >= 8) { v.add(8, 1, z, P.curb); v.add(-8, 1, z, P.curb); }
+            }
+        }
+
+        function windowColor() {
+            const r = rng();
+            if (r > 0.62) return P.winOff;          // 꺼진 창
+            if (r > 0.40) return P.winWarm;
+            if (r > 0.26) return P.winWhite;
+            if (r > 0.14) return P.winCyan;
+            return P.winMag;
+        }
+
+        function building(cx, cz, w, dd, h, base, accent) {
+            shell(cx - w, 1, cz - dd, cx + w, h, cz + dd, base);
+
+            // 네 벽면에 창문 격자
+            for (let y = 4; y <= h - 3; y += 2) {
+                for (let x = cx - w + 1; x <= cx + w - 1; x += 2) {
+                    v.add(x, y, cz - dd, windowColor());
+                    v.add(x, y, cz + dd, windowColor());
+                }
+                for (let z = cz - dd + 1; z <= cz + dd - 1; z += 2) {
+                    v.add(cx - w, y, z, windowColor());
+                    v.add(cx + w, y, z, windowColor());
+                }
+            }
+
+            // 네온 트림: 상단 띠 + 모서리 세로줄
+            v.box(cx - w, h - 2, cz - dd, cx + w, h - 2, cz + dd, accent);
+            v.box(cx - w, 4, cz - dd, cx - w, h - 4, cz - dd, accent);
+            v.box(cx + w, 4, cz + dd, cx + w, h - 4, cz + dd, accent);
+
+            // 옥상 구조물
+            v.box(cx - 2, h, cz - 2, cx + 2, h + 3, cz + 2, P.roof);
+            v.cylinderY(cx + w - 2, h, h + 3, cz - dd + 2, 1.4, P.tank);
+            v.line(cx - w + 2, h, cz + dd - 2, cx - w + 2, h + 8, cz + dd - 2, 0.5, P.antenna);
+            v.sphere(cx - w + 2, h + 8, cz + dd - 2, 1, P.neonRed); // 항공 경고등
+
+            // 세로 네온 간판(도로를 향한 면)
+            if (Math.abs(cz) > Math.abs(cx)) {
+                const sz = cz > 0 ? cz - dd - 1 : cz + dd + 1;
+                for (let y = 6; y < h - 4; y += 3) v.box(cx - 1, y, sz, cx + 1, y + 1, sz, accent);
+            } else {
+                const sx = cx > 0 ? cx - w - 1 : cx + w + 1;
+                for (let y = 6; y < h - 4; y += 3) v.box(sx, y, cz - 1, sx, y + 1, cz + 1, accent);
+            }
+        }
+
+        function buildCity() {
+            const bases = [P.buildA, P.buildB, P.buildC, P.buildD];
+            const accents = [P.neonPink, P.neonCyan, P.neonPurple, P.neonYellow, P.neonGreen];
+            for (const qx of [1, -1]) {
+                for (const qz of [1, -1]) {
+                    for (let gx = 0; gx < 2; gx++) {
+                        for (let gz = 0; gz < 3; gz++) {
+                            if (rng() < 0.16) continue; // 광장/빈터
+                            const cx = qx * (15 + gx * 20 + Math.floor(rng() * 3));
+                            const cz = qz * (15 + gz * 16 + Math.floor(rng() * 3));
+                            const w = 4 + Math.floor(rng() * 3);
+                            const dd = 4 + Math.floor(rng() * 3);
+                            const h = 16 + Math.floor(rng() * 30);
+                            const base = bases[Math.floor(rng() * bases.length)];
+                            const accent = accents[Math.floor(rng() * accents.length)];
+                            building(cx, cz, w, dd, h, base, accent);
+                        }
+                    }
+                }
+            }
+        }
+
+        function buildStreetProps() {
+            // 가로등 (교차로 네 모서리 주변)
+            function streetLamp(x, z) {
+                v.box(x, 1, z, x, 9, z, P.lampPole);
+                v.box(x, 9, z, x + 2, 9, z, P.lampPole);
+                v.sphere(x + 2, 9, z, 1, P.lampHead);
+            }
+            streetLamp(9, 9); streetLamp(-9, -9); streetLamp(9, -9); streetLamp(-9, 9);
+            streetLamp(9, 30); streetLamp(-9, -30); streetLamp(30, -9); streetLamp(-30, 9);
+
+            // 지상 정차 차량 두 대
+            groundCar(-4, 22, 0xff3b3b);
+            groundCar(4, -26, 0x2f7bff);
+
+            // 홀로그램 광고 링 (공중에 떠 있는 원)
+            v.torusY(-14, 26, 14, 6, 0.8, P.hologram);
+            v.torusY(-14, 26, 14, 3.5, 0.6, P.holoPink);
+            v.line(-14, 1, 14, -14, 20, 14, 0.4, P.hologram);
+
+            // 스팀 벤트 (밝은 김이 아니라 옅은 기둥)
+            for (let i = 0; i < 5; i++) {
+                const x = -6 + Math.floor(rng() * 12);
+                const z = -6 + Math.floor(rng() * 12);
+                for (let y = 1; y < 5; y++) if (rng() > 0.4) v.add(x, y, z, 0x2a3444);
+            }
+        }
+
+        function groundCar(cx, cz, color) {
+            v.box(cx - 2, 1, cz - 4, cx + 2, 2, cz + 4, color);
+            v.box(cx - 2, 3, cz - 2, cx + 2, 4, cz + 3, color);
+            v.box(cx - 1, 3, cz - 2, cx + 1, 4, cz + 3, P.carGlass);
+            v.add(cx, 2, cz - 4, P.carRed); v.add(cx, 2, cz + 4, P.carWhite);
+        }
+
+        function buildElevatedRail() {
+            // 뒤편을 가로지르는 고가 모노레일 + 열차
+            const rz = -54, y = 20;
+            for (let x = -66; x <= 66; x += 12) {
+                v.box(x - 1, 1, rz - 1, x + 1, y - 2, rz + 1, P.railPillar);
+            }
+            v.box(-66, y - 1, rz - 3, 66, y, rz + 3, P.railDeck);
+            v.box(-66, y + 1, rz - 3, 66, y + 1, rz - 3, P.neonCyan); // 발광 레일
+            v.box(-66, y + 1, rz + 3, 66, y + 1, rz + 3, P.neonCyan);
+
+            // 열차
+            const tx = 18;
+            v.box(tx - 12, y + 1, rz - 2, tx + 12, y + 6, rz + 2, P.trainBody);
+            v.box(tx - 12, y + 3, rz - 2, tx + 12, y + 4, rz - 2, P.trainStripe);
+            v.box(tx - 12, y + 3, rz + 2, tx + 12, y + 4, rz + 2, P.trainStripe);
+            for (let wx = tx - 10; wx <= tx + 10; wx += 3) {
+                v.box(wx, y + 4, rz - 2, wx + 1, y + 5, rz - 2, P.winCyan);
+                v.box(wx, y + 4, rz + 2, wx + 1, y + 5, rz + 2, P.winCyan);
+            }
+        }
+
+        function buildSky() {
+            // 달
+            v.sphere(78, 96, -70, 9, P.moon);
+            v.sphere(72, 100, -66, 4, 0xdad4f0);
+            // 별
+            for (let i = 0; i < 90; i++) {
+                const x = -120 + rng() * 240;
+                const y = 70 + rng() * 60;
+                const z = -110 + rng() * 60;
+                v.add(x, y, z, P.star);
+            }
+            // 원경 빌딩 실루엣
+            for (let x = -110; x <= 110; x += 7) {
+                const h = 20 + Math.floor(rng() * 40);
+                const bz = -92 + Math.floor(rng() * 8);
+                v.box(x - 2, 0, bz - 2, x + 2, h, bz + 2, P.silhouette);
+                if (rng() > 0.5) v.add(x, h - 4, bz + 2, rng() > 0.5 ? P.neonPink : P.neonCyan);
+            }
+        }
+
+        // ==========================================
+        // 5. 하늘을 나는 차 (애니메이션 대상)
+        // ==========================================
+        const flyingCar = new THREE.Group();
+        scene.add(flyingCar);
+        (function buildFlyingCar() {
+            const c = new VoxelBuilder();
+            c.ellipsoid(0, 0, 0, 5, 2, 2, P.carBody);
+            c.box(-2, 1, -2, 2, 2, 2, P.carGlass);
+            c.box(4, -1, -2, 5, 0, 2, P.carWhite);   // 전조등
+            c.box(-5, 0, -2, -4, 1, 2, P.carRed);    // 후미등
+            c.box(-6, -2, -2, -3, -1, 2, P.neonCyan); // 발광 추진부
+            const mesh = buildVoxelMesh(THREE, c, { size: 0.92, roughness: 0.4, metalness: 0.35 });
+            flyingCar.add(mesh);
+            const glow = new THREE.PointLight(0x1cf0ff, 1.4, 30, 2);
+            glow.position.set(-5, -2, 0);
+            flyingCar.add(glow);
+        })();
+
+        // ==========================================
+        // 6. 메쉬 컴파일
+        // ==========================================
+        function buildMeshes() {
+            scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.58, metalness: 0.22 }));
+        }
+
+        setTimeout(() => {
+            generateWorld();
+            buildMeshes();
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 150);
+
+        // ==========================================
+        // 7. 애니메이션 루프
+        // ==========================================
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+
+            // 하늘을 나는 차: 도시 위를 크게 8자로 순회 + 뱅킹
+            const px = Math.sin(t * 0.35) * 62;
+            const pz = Math.sin(t * 0.7) * 40;
+            flyingCar.position.set(px, 46 + Math.sin(t * 1.3) * 3, pz);
+            const heading = Math.atan2(Math.cos(t * 0.7) * 0.7 * 40, Math.cos(t * 0.35) * 0.35 * 62);
+            flyingCar.rotation.y = heading;
+            flyingCar.rotation.z = Math.sin(t * 0.7) * 0.25;
+
+            // 네온 점멸
+            for (const n of neonLights) {
+                n.light.intensity = n.base * (1 - n.pulse * 0.5) + n.base * n.pulse * 0.5 * (Math.sin(t * 3.2 + n.phase) * 0.5 + 0.5);
+            }
+
+            controls.target.y = 22 + Math.sin(t * 1.1) * 1.4;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
