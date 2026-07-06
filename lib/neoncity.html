@@ -16,7 +16,7 @@
         body::after {
             content: '';
             position: absolute; inset: 0;
-            background: radial-gradient(circle at center, transparent 34%, rgba(4, 2, 14, 0.62) 130%);
+            background: radial-gradient(circle at center, transparent 44%, rgba(10, 8, 30, 0.38) 135%);
             pointer-events: none;
             z-index: 5;
         }
@@ -103,8 +103,8 @@
         // 1. 씬 · 렌더러
         // ==========================================
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a0e22);
-        scene.fog = new THREE.FogExp2(0x120a2a, 0.0042);
+        scene.background = new THREE.Color(0x1a2247);
+        scene.fog = new THREE.FogExp2(0x2a375f, 0.0026);
 
         const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1400);
         camera.position.set(-92, 74, 104);
@@ -115,7 +115,7 @@
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
+        renderer.toneMappingExposure = 1.45;
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
@@ -131,10 +131,10 @@
         // ==========================================
         // 2. 야간 조명 + 네온 포인트 라이트
         // ==========================================
-        scene.add(new THREE.AmbientLight(0x33304f, 0.55));
-        scene.add(new THREE.HemisphereLight(0x2a3a6a, 0x08060f, 0.5));
+        scene.add(new THREE.AmbientLight(0x5a5c86, 0.9));
+        scene.add(new THREE.HemisphereLight(0x5a70b8, 0x1a1830, 0.95));
 
-        const moon = new THREE.DirectionalLight(0x9db4ff, 0.72);
+        const moon = new THREE.DirectionalLight(0xc7d4ff, 1.2);
         moon.position.set(-80, 130, 60);
         moon.castShadow = true;
         moon.shadow.mapSize.set(4096, 4096);
@@ -153,27 +153,27 @@
             scene.add(light);
             neonLights.push({ light, base: intensity, pulse, phase: Math.random() * Math.PI * 2 });
         }
-        addNeon(-16, 10, -16, 0xff2d95, 2.4, 70, 0.5);
-        addNeon(20, 12, 18, 0x1cf0ff, 2.2, 70, 0.35);
-        addNeon(28, 8, -24, 0x9b5cff, 1.8, 60, 0.6);
-        addNeon(-26, 9, 24, 0xffe24a, 1.6, 55, 0.4);
-        addNeon(0, 6, 0, 0xff6ad5, 1.5, 48, 0.7);
+        addNeon(-16, 10, -16, 0xff2d95, 2.8, 80, 0.5);
+        addNeon(20, 12, 18, 0x1cf0ff, 2.6, 80, 0.35);
+        addNeon(28, 8, -24, 0x9b5cff, 2.1, 68, 0.6);
+        addNeon(-26, 9, 24, 0xffe24a, 1.9, 62, 0.4);
+        addNeon(0, 6, 0, 0xff6ad5, 1.8, 54, 0.7);
 
         // ==========================================
         // 3. 팔레트 · 복셀 빌더 (공유 엔진)
         // ==========================================
         const P = {
-            asphalt: 0x14161c, asphaltWet: 0x1b2130, laneMark: 0xf5d341,
-            puddleC: 0x1cf0ff, puddleM: 0xff2d95, curb: 0x2a2d34, drain: 0x0c0d12,
-            buildA: 0x23252e, buildB: 0x2b2f3a, buildC: 0x1e2733, buildD: 0x15171d,
-            roof: 0x101218, tank: 0x33373f, antenna: 0x44484f,
-            winWarm: 0xffcf7a, winCyan: 0x6ff5ff, winMag: 0xff8ad8, winWhite: 0xfdfdff, winOff: 0x0f1118,
+            asphalt: 0x1e222c, asphaltWet: 0x2b3548, laneMark: 0xffdd55,
+            puddleC: 0x54f6ff, puddleM: 0xff5bb0, curb: 0x3a3f4a, drain: 0x14161d,
+            buildA: 0x353a4d, buildB: 0x3f4560, buildC: 0x2f3d52, buildD: 0x272b36,
+            roof: 0x1b1e28, tank: 0x424653, antenna: 0x565b64,
+            winWarm: 0xffdca0, winCyan: 0x9bf9ff, winMag: 0xffa3e0, winWhite: 0xffffff, winOff: 0x232a3c,
             neonPink: 0xff2d95, neonCyan: 0x1cf0ff, neonPurple: 0x9b5cff, neonYellow: 0xffe24a, neonGreen: 0x54ff9b, neonRed: 0xff3b3b,
-            lampPole: 0x2a2e36, lampHead: 0xfff2c4,
-            carBody: 0x12161f, carGlass: 0x39f0ff, carRed: 0xff3b3b, carWhite: 0xfff7d6,
+            lampPole: 0x3a3f48, lampHead: 0xfff2c4,
+            carBody: 0x1c2230, carGlass: 0x39f0ff, carRed: 0xff3b3b, carWhite: 0xfff7d6,
             hologram: 0x59d8ff, holoPink: 0xff7ad0,
-            railPillar: 0x22242c, railDeck: 0x2e323c, trainBody: 0xe8edf5, trainStripe: 0xff2d95,
-            moon: 0xf3f0ff, star: 0xfbfbff, silhouette: 0x0d1020,
+            railPillar: 0x32353f, railDeck: 0x3e424e, trainBody: 0xe8edf5, trainStripe: 0xff2d95,
+            moon: 0xf3f0ff, star: 0xfbfbff, silhouette: 0x1b2340,
         };
 
         const v = new VoxelBuilder();
@@ -237,10 +237,10 @@
 
         function windowColor() {
             const r = rng();
-            if (r > 0.62) return P.winOff;          // 꺼진 창
-            if (r > 0.40) return P.winWarm;
-            if (r > 0.26) return P.winWhite;
-            if (r > 0.14) return P.winCyan;
+            if (r > 0.74) return P.winOff;          // 꺼진 창 (비율 축소)
+            if (r > 0.48) return P.winWarm;
+            if (r > 0.32) return P.winWhite;
+            if (r > 0.16) return P.winCyan;
             return P.winMag;
         }
 
