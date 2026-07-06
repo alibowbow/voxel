@@ -1,0 +1,11 @@
+{
+  "name": "voxel-gallery",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Interactive procedural voxel art gallery built with Three.js",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "test": "node test/voxel-engine.test.mjs"
+  }
+}
