@@ -34,6 +34,19 @@
         .btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
         .btn.on { background: var(--accent); color: #241d00; border-color: transparent; }
         .btn.wide { grid-column: span 2; }
+        #heightrow {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            margin-top: 8px; padding: 7px 10px;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 8px;
+        }
+        #heightrow .lbl { font-size: 11px; color: #9aa4c8; }
+        #heightrow .ybtn {
+            font-family: inherit; width: 26px; height: 24px; font-size: 12px; font-weight: 900;
+            color: #dfe6ff; background: rgba(255,255,255,0.08); border: 1px solid var(--line);
+            border-radius: 6px; cursor: pointer;
+        }
+        #heightrow .ybtn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+        #yval { font-size: 13px; font-weight: 900; color: var(--accent); min-width: 20px; text-align: center; }
         #count { margin-top: 10px; font-size: 11px; color: #9aa4c8; text-align: center; }
         #count b { color: #fff; }
 
@@ -84,10 +97,16 @@
             <button class="btn" id="share">🔗 링크 공유</button>
             <button class="btn wide" id="clear">🗑️ 전체 지우기</button>
         </div>
+        <div id="heightrow">
+            <span class="lbl">작업 높이 <small>(Q/E)</small></span>
+            <button class="ybtn" id="ydown">▼</button>
+            <b id="yval">0</b>
+            <button class="ybtn" id="yup">▲</button>
+        </div>
         <div id="count">블록 <b>0</b>개</div>
     </div>
     <a id="back" href="../index.html">← 갤러리</a>
-    <div id="hint"><b>클릭</b> 블록 놓기 · <b>우클릭</b> 지우기 · <b>드래그</b> 회전 · <b>스크롤</b> 확대</div>
+    <div id="hint"><b>클릭</b> 놓기 · <b>우클릭</b> 지우기 · <b>Q/E</b> 작업 높이 · <b>드래그</b> 회전 · <b>스크롤</b> 확대</div>
     <div id="toast"></div>
 
     <script type="module">
@@ -154,6 +173,31 @@
             new THREE.MeshBasicMaterial({ visible: false }));
         groundPlane.rotation.x = -Math.PI / 2;
         scene.add(groundPlane);
+
+        // 높이 조절식 작업판 — 허공의 원하는 층(Y)에 자유롭게 블록을 놓는다
+        let workY = 0;
+        const workPlane = new THREE.Mesh(
+            new THREE.PlaneGeometry(HALF * 2, HALF * 2),
+            new THREE.MeshBasicMaterial({ color: 0x1cc8ff, transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false }));
+        workPlane.rotation.x = -Math.PI / 2;
+        workPlane.visible = false;
+        scene.add(workPlane);
+        const workEdge = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.PlaneGeometry(HALF * 2, HALF * 2)),
+            new THREE.LineBasicMaterial({ color: 0x1cc8ff, transparent: true, opacity: 0.65 }));
+        workEdge.rotation.x = -Math.PI / 2;
+        workEdge.visible = false;
+        scene.add(workEdge);
+
+        function setWorkY(y) {
+            workY = Math.min(MAXY - 1, Math.max(0, y));
+            const on = workY > 0;
+            workPlane.visible = on;
+            workEdge.visible = on;
+            workPlane.position.y = workY + 0.02;
+            workEdge.position.y = workY + 0.02;
+            document.getElementById('yval').textContent = workY;
+        }
 
         // ==========================================
         // 3. 복셀 저장소
@@ -294,16 +338,18 @@
         ghost.visible = false;
         scene.add(ghost);
 
-        function pickCell(clientX, clientY) {
+        function pickCell(clientX, clientY, wantErase = false) {
             pointer.x = (clientX / window.innerWidth) * 2 - 1;
             pointer.y = -(clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(pointer, camera);
-            const hits = raycaster.intersectObjects([groundPlane, ...voxelGroup.children], false);
+            const targets = [groundPlane, ...voxelGroup.children];
+            if (workY > 0 && !wantErase) targets.push(workPlane); // 지울 때는 작업판이 클릭을 가로채지 않게
+            const hits = raycaster.intersectObjects(targets, false);
             if (!hits.length) return null;
             const hit = hits[0];
-            const isVoxel = hit.object !== groundPlane;
-            const n = hit.face.normal.clone();
-            if (isVoxel) n.applyQuaternion(hit.object.quaternion);
+            const isVoxel = hit.object !== groundPlane && hit.object !== workPlane;
+            // 면 법선을 월드 좌표계로 변환해야 회전된 판(바닥/작업판)에서도 정확한 칸이 잡힌다
+            const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
             const p = hit.point.clone().add(n.multiplyScalar(0.5));
             const cell = { x: Math.floor(p.x), y: Math.max(0, Math.floor(p.y)), z: Math.floor(p.z) };
             return { cell, targetMesh: isVoxel ? hit.object : null };
@@ -311,7 +357,7 @@
 
         let hover = null;
         function updateGhost(clientX, clientY) {
-            hover = pickCell(clientX, clientY);
+            hover = pickCell(clientX, clientY, eraseMode);
             if (!hover) { ghost.visible = false; return; }
             if (eraseMode) {
                 if (hover.targetMesh) {
@@ -331,7 +377,7 @@
         }
 
         function act(clientX, clientY, forceErase) {
-            const picked = pickCell(clientX, clientY);
+            const picked = pickCell(clientX, clientY, forceErase || eraseMode);
             if (!picked) return;
             if (forceErase || eraseMode) {
                 if (picked.targetMesh) removeVoxel(picked.targetMesh);
@@ -376,6 +422,12 @@
         document.getElementById('eraser').addEventListener('click', (e) => {
             eraseMode = !eraseMode;
             e.currentTarget.classList.toggle('on', eraseMode);
+        });
+        document.getElementById('yup').addEventListener('click', () => setWorkY(workY + 1));
+        document.getElementById('ydown').addEventListener('click', () => setWorkY(workY - 1));
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyE') setWorkY(workY + 1);
+            else if (e.code === 'KeyQ') setWorkY(workY - 1);
         });
         document.getElementById('undo').addEventListener('click', undo);
         document.getElementById('clear').addEventListener('click', () => {
