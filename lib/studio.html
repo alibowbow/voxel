@@ -76,6 +76,31 @@
         }
         #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+        /* 터치용 플로팅 높이 컨트롤 (오른쪽 엄지 위치) */
+        #ycontrol {
+            position: fixed; right: 12px; top: 50%; transform: translateY(-50%); z-index: 10;
+            display: none; flex-direction: column; align-items: center; gap: 8px;
+            background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+            padding: 10px 8px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+        }
+        #ycontrol .ycbtn {
+            width: 46px; height: 46px; font-size: 18px; font-weight: 900; color: #dfe6ff;
+            background: rgba(255,255,255,0.08); border: 1px solid var(--line); border-radius: 12px;
+            cursor: pointer; touch-action: manipulation;
+        }
+        #ycontrol .ycbtn:active { background: var(--accent); color: #241d00; }
+        #ycontrol .yclabel { font-size: 9px; color: #9aa4c8; letter-spacing: 1px; }
+        #ylevel { font-size: 16px; font-weight: 900; color: var(--accent); }
+
+        #hint .mob { display: none; }
+
+        @media (pointer: coarse), (max-width: 820px) {
+            #ycontrol { display: flex; }
+            #hint .desk { display: none; }
+            #hint .mob { display: inline; }
+        }
+
         @media (max-width: 640px) {
             #panel { width: 188px; padding: 12px; }
             #hint { font-size: 11px; padding: 7px 12px; max-width: calc(100vw - 24px); overflow: hidden; text-overflow: ellipsis; }
@@ -106,7 +131,13 @@
         <div id="count">블록 <b>0</b>개</div>
     </div>
     <a id="back" href="../index.html">← 갤러리</a>
-    <div id="hint"><b>클릭</b> 놓기 · <b>우클릭</b> 지우기 · <b>Q/E</b> 작업 높이 · <b>드래그</b> 회전 · <b>스크롤</b> 확대</div>
+    <div id="ycontrol">
+        <span class="yclabel">높이</span>
+        <button class="ycbtn" id="yup2">▲</button>
+        <div id="ylevel">0</div>
+        <button class="ycbtn" id="ydown2">▼</button>
+    </div>
+    <div id="hint"><span class="desk"><b>클릭</b> 놓기 · <b>우클릭</b> 지우기 · <b>Q/E</b> 작업 높이 · <b>드래그</b> 회전 · <b>스크롤</b> 확대</span><span class="mob"><b>탭</b> 놓기 · <b>길게 누르기</b> 지우기 · <b>▲▼</b> 작업 높이</span></div>
     <div id="toast"></div>
 
     <script type="module">
@@ -197,6 +228,7 @@
             workPlane.position.y = workY + 0.02;
             workEdge.position.y = workY + 0.02;
             document.getElementById('yval').textContent = workY;
+            document.getElementById('ylevel').textContent = workY;
         }
 
         // ==========================================
@@ -388,18 +420,39 @@
             updateGhost(clientX, clientY);
         }
 
-        let downPos = null, downButton = 0;
+        let downPos = null, downButton = 0, isTouch = false;
+        let lpTimer = null, lpFired = false; // 터치 길게 누르기 = 지우기
+
         renderer.domElement.addEventListener('pointerdown', (e) => {
             downPos = [e.clientX, e.clientY];
             downButton = e.button;
+            isTouch = e.pointerType === 'touch';
+            lpFired = false;
+            clearTimeout(lpTimer);
+            if (isTouch) {
+                lpTimer = setTimeout(() => {
+                    lpFired = true;
+                    act(e.clientX, e.clientY, true);
+                    if (navigator.vibrate) navigator.vibrate(30);
+                }, 500);
+            }
         });
         renderer.domElement.addEventListener('pointerup', (e) => {
+            clearTimeout(lpTimer);
             if (!downPos) return;
             const moved = Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]);
-            if (moved < 6) act(e.clientX, e.clientY, downButton === 2);
+            const threshold = isTouch ? 10 : 6;
+            if (!lpFired && moved < threshold) act(e.clientX, e.clientY, downButton === 2);
             downPos = null;
         });
-        renderer.domElement.addEventListener('pointermove', (e) => updateGhost(e.clientX, e.clientY));
+        renderer.domElement.addEventListener('pointercancel', () => {
+            clearTimeout(lpTimer);
+            downPos = null;
+        });
+        renderer.domElement.addEventListener('pointermove', (e) => {
+            if (downPos && Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]) > 10) clearTimeout(lpTimer);
+            updateGhost(e.clientX, e.clientY);
+        });
         renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
         // ==========================================
@@ -425,6 +478,8 @@
         });
         document.getElementById('yup').addEventListener('click', () => setWorkY(workY + 1));
         document.getElementById('ydown').addEventListener('click', () => setWorkY(workY - 1));
+        document.getElementById('yup2').addEventListener('click', () => setWorkY(workY + 1));
+        document.getElementById('ydown2').addEventListener('click', () => setWorkY(workY - 1));
         window.addEventListener('keydown', (e) => {
             if (e.code === 'KeyE') setWorkY(workY + 1);
             else if (e.code === 'KeyQ') setWorkY(workY - 1);
