@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 미니 행성</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: radial-gradient(circle at 30% 20%, #1c2450 0%, #0c1030 45%, #050818 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 42%, rgba(2, 4, 12, 0.55) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #050818; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #6b8aff;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(107, 138, 255, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #ffb85c; box-shadow: 0 0 24px rgba(255, 184, 92, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #8a94c8; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(6, 10, 28, 0.62);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(180, 200, 255, 0.2);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.45); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #6b8aff; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #ffb85c; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #d5dcf5; line-height: 1.8;
+            background: rgba(0,0,0,0.28); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>자그마한 행성에 생명을 불어넣고 있습니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">미니 행성</div>
+        <div class="subtitle">고리 · 위성 · 궤도를 도는 우주선</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0e26);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1400);
+        camera.position.set(-58, 34, 74);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.25;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 0, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 260;
+        controls.minDistance = 30;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.6;
+
+        // 우주의 태양광
+        scene.add(new THREE.AmbientLight(0x40486e, 0.8));
+        const sun = new THREE.DirectionalLight(0xfff0d8, 2.4);
+        sun.position.set(-90, 60, 70);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        const d = 60;
+        sun.shadow.camera.left = -d; sun.shadow.camera.right = d;
+        sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
+        sun.shadow.camera.near = 10; sun.shadow.camera.far = 300;
+        sun.shadow.bias = -0.0005;
+        scene.add(sun);
+        const rim = new THREE.DirectionalLight(0x6b8aff, 0.7);
+        rim.position.set(80, -30, -70);
+        scene.add(rim);
+
+        const P = {
+            ocean: 0x2e6ed6, oceanD: 0x1f4fa8, grass: 0x5cb85c, grassD: 0x3f9142,
+            sand: 0xe8cc8a, ice: 0xeaf5ff, mountain: 0x8a8f9a, mountainTop: 0xffffff,
+            trunk: 0x5c3a21, leaf: 0x2f8f45, house: 0xe85c5c, houseWall: 0xfff2dd,
+            ring: 0xc8a86e, ringD: 0x9a7f4e, ringIce: 0xd8e8f5,
+            moon: 0xb8bcc8, moonD: 0x8e93a2, crater: 0x757a88,
+            rocketBody: 0xf4f8fb, rocketNose: 0xe85c5c, rocketFin: 0xe85c5c, flame: 0xffb85c, flameHot: 0xfff0a0,
+            star: 0xffffff, nebula1: 0x6b5cff, nebula2: 0xff5cb8,
+        };
+
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(20260101);
+
+        // ------- 행성 본체 (지형 밴드 + 대륙) -------
+        const v = new VoxelBuilder();
+        const R = 16;
+        function planet() {
+            for (let x = -R; x <= R; x++)
+            for (let y = -R; y <= R; y++)
+            for (let z = -R; z <= R; z++) {
+                const dist = Math.hypot(x, y, z);
+                if (dist > R || dist < R - 2.2) continue;
+                const lat = Math.asin(y / Math.max(dist, 0.001));       // 위도
+                const continent = Math.sin(x * 0.42) + Math.cos(z * 0.38) + Math.sin((x + z) * 0.21) + Math.sin(y * 0.33);
+                let c;
+                if (Math.abs(lat) > 1.05) c = P.ice;                     // 극지방
+                else if (continent > 0.6) c = Math.abs(lat) < 0.28 ? P.sand : (continent > 1.6 ? P.grassD : P.grass);
+                else c = continent > 0.2 ? P.oceanD : P.ocean;
+                v.add(x, y, z, c);
+            }
+            // 산맥 봉우리
+            for (const [mx, my, mz] of [[6, 12, 6], [-9, 9, 8], [10, 7, -9]]) {
+                const len = Math.hypot(mx, my, mz);
+                const ux = mx / len, uy = my / len, uz = mz / len;
+                for (let i = 0; i < 4; i++) {
+                    const rr = R - 1 + i;
+                    v.add(ux * rr, uy * rr, uz * rr, i > 2 ? P.mountainTop : P.mountain);
+                }
+            }
+            // 자그마한 나무들
+            for (const [tx, ty, tz] of [[-4, 14, 4], [8, 11, -7], [-11, 8, -8], [3, 15, -3]]) {
+                const len = Math.hypot(tx, ty, tz);
+                const ux = tx / len, uy = ty / len, uz = tz / len;
+                for (let i = 0; i < 3; i++) v.add(ux * (R + i), uy * (R + i), uz * (R + i), P.trunk);
+                v.sphere(Math.round(ux * (R + 4)), Math.round(uy * (R + 4)), Math.round(uz * (R + 4)), 2.2, P.leaf);
+            }
+            // 작은 집 한 채
+            const hx = 13, hy = 6, hz = 5;
+            const hl = Math.hypot(hx, hy, hz);
+            const hux = hx / hl, huy = hy / hl, huz = hz / hl;
+            const bx = Math.round(hux * (R + 1)), by = Math.round(huy * (R + 1)), bz = Math.round(huz * (R + 1));
+            v.box(bx - 1, by - 1, bz - 1, bx + 1, by + 1, bz + 1, P.houseWall);
+            v.box(bx - 1, by + 2, bz - 1, bx + 1, by + 2, bz + 1, P.house);
+            v.add(bx, by + 3, bz, P.house);
+            v.add(bx + 2, by, bz, 0xffd166); // 창문 불빛
+        }
+        planet();
+        const planetMesh = buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.8, metalness: 0.05 });
+        const planetGroup = new THREE.Group();
+        planetGroup.add(planetMesh);
+        scene.add(planetGroup);
+
+        // ------- 고리 (기울여서 회전) -------
+        const rv = new VoxelBuilder();
+        rv.ringY(0, 0, 0, 24, 1.6, P.ring);
+        rv.ringY(0, 0, 0, 27.5, 1.1, P.ringD);
+        rv.ringY(0, 0, 0, 30, 0.7, P.ringIce);
+        const ringMesh = buildVoxelMesh(THREE, rv, { size: 0.9, roughness: 0.7, metalness: 0.15 });
+        const ringGroup = new THREE.Group();
+        ringGroup.add(ringMesh);
+        ringGroup.rotation.set(0.42, 0, 0.18);
+        scene.add(ringGroup);
+
+        // ------- 위성 -------
+        const mv = new VoxelBuilder();
+        mv.sphere(0, 0, 0, 4.2, P.moon);
+        mv.sphere(2, 1, 2, 1.4, P.crater);
+        mv.sphere(-2, -1, 1, 1.1, P.moonD);
+        mv.sphere(0, 2, -2, 0.9, P.crater);
+        const moonMesh = buildVoxelMesh(THREE, mv, { size: 0.92, roughness: 0.9, metalness: 0.02 });
+        const moonOrbit = new THREE.Group();
+        const moonHolder = new THREE.Group();
+        moonHolder.add(moonMesh);
+        moonHolder.position.set(46, 0, 0);
+        moonOrbit.add(moonHolder);
+        moonOrbit.rotation.x = 0.2;
+        scene.add(moonOrbit);
+
+        // ------- 궤도를 도는 우주선 -------
+        const kv = new VoxelBuilder();
+        kv.cylinderZ(0, 0, -4, 3, 1.6, P.rocketBody);
+        kv.cylinderZ(0, 0, 4, 5, 1.0, P.rocketNose);
+        kv.add(0, 0, 6, P.rocketNose);
+        kv.box(-3, 0, -4, -2, 0, -2, P.rocketFin);
+        kv.box(2, 0, -4, 3, 0, -2, P.rocketFin);
+        kv.box(0, 2, -4, 0, 3, -2, P.rocketFin);
+        kv.add(0, 0, -5, P.flame);
+        kv.add(0, 0, -6, P.flameHot);
+        const rocketMesh = buildVoxelMesh(THREE, kv, { size: 0.9, roughness: 0.5, metalness: 0.2 });
+        const rocket = new THREE.Group();
+        rocket.add(rocketMesh);
+        scene.add(rocket);
+        const rocketLight = new THREE.PointLight(0xffb85c, 1.2, 26, 2);
+        rocket.add(rocketLight);
+
+        // ------- 별과 성운 -------
+        const sv = new VoxelBuilder();
+        for (let i = 0; i < 240; i++) {
+            const a = rng() * Math.PI * 2, b = (rng() - 0.5) * Math.PI;
+            const rr = 130 + rng() * 90;
+            sv.add(Math.cos(a) * Math.cos(b) * rr, Math.sin(b) * rr, Math.sin(a) * Math.cos(b) * rr,
+                rng() > 0.85 ? (rng() > 0.5 ? P.nebula1 : P.nebula2) : P.star);
+        }
+        const starMesh = buildVoxelMesh(THREE, sv, { size: 1.1, roughness: 1, metalness: 0 });
+        starMesh.castShadow = false; starMesh.receiveShadow = false;
+        scene.add(starMesh);
+
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+            planetGroup.rotation.y = t * 0.12;
+            ringGroup.rotation.y = t * 0.05;
+            moonOrbit.rotation.y = t * 0.3;
+            moonHolder.rotation.y = t * 0.8;
+            // 우주선: 기울어진 원 궤도 + 진행 방향으로 기수 정렬
+            const oa = t * 0.55;
+            const orbitR = 34;
+            const px = Math.cos(oa) * orbitR;
+            const pz = Math.sin(oa) * orbitR;
+            const py = Math.sin(oa * 2) * 7;
+            rocket.position.set(px, py, pz);
+            const nx = -Math.sin(oa) * orbitR, nz = Math.cos(oa) * orbitR, ny = Math.cos(oa * 2) * 14;
+            rocket.lookAt(px + nx, py + ny, pz + nz);
+            rocket.rotation.z = Math.sin(oa) * 0.4;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

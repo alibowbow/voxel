@@ -27,6 +27,34 @@
 
 window.VOXEL_SCENES = [
     {
+        file: 'lib/studio.html',
+        index: '000',
+        tagLabel: '🎨 직접 만들기 · Create',
+        title: '복셀 스튜디오',
+        desc: '브라우저에서 블록을 쌓아 나만의 복셀 아트를 만들어 보세요 — PNG로 저장하고 링크 하나로 친구에게 공유할 수 있습니다.',
+        badge: 'Editor',
+        gradient: 'linear-gradient(140deg, #1a2148 0%, #2a3468 60%, #3d2a68 100%)',
+        accent: '#ffd84d',
+        cta: '#ffd84d',
+        tags: ['create'],
+        preview3d(v) {
+            // 작업대 위에 무지개 블록이 쌓여가는 모습
+            v.box(-11, 0, -11, 11, 1, 11, 0x2e3860);
+            for (let x = -10; x <= 10; x += 2)
+            for (let z = -10; z <= 10; z += 2) v.add(x, 1, z, 0x39457e);
+            const cols = [0xff4757, 0xff8a3c, 0xffd84d, 0x2ed573, 0x1cc8ff, 0xa55eea];
+            const spots = [[-7, -6], [-3, -8], [2, -7], [6, -4], [7, 1], [5, 5], [1, 7], [-4, 7], [-7, 3]];
+            spots.forEach(([x, z], i) => v.box(x - 1, 2, z - 1, x + 1, 2 + i, z + 1, cols[i % 6]));
+            // 중앙의 하트 (스튜디오 시작 모델)
+            const HEART = [[-2, 3], [0, 3], [2, 3], [-1, 4], [1, 4],
+                [-2, 2], [-1, 2], [0, 2], [1, 2], [2, 2], [-1, 1], [0, 1], [1, 1], [0, 0]];
+            for (const [hx, hy] of HEART) v.box(hx, hy + 4, -1, hx, hy + 4, 0, 0xff4757);
+            // 떠 있는 고스트 블록 + 커서
+            v.box(4, 9, 4, 5, 10, 5, 0x1cc8ff);
+            v.add(6, 12, 6, 0xffffff); v.add(7, 12, 6, 0xffffff); v.add(6, 12, 7, 0xffffff);
+        },
+    },
+    {
         file: 'lib/pelican.html',
         index: '001',
         title: 'The Pelican Cruiser',
@@ -413,5 +441,181 @@ window.VOXEL_SCENES = [
                 <circle cx="63" cy="40" r="1.6" fill="#1cf0ff"/>
                 <line x1="63" y1="40" x2="50" y2="42" stroke="#1cf0ff" stroke-width="1.2" opacity="0.5"/>
             </svg>`,
+    },
+    {
+        file: 'lib/hanok.html',
+        index: '005',
+        title: '가을 한옥 마을',
+        desc: '단풍과 은행이 물든 한옥 마을 — 곡선 기와지붕, 돌담, 장독대, 석등 위로 낙엽이 흩날리는 가을 풍경.',
+        badge: 'Animated 3D',
+        gradient: 'linear-gradient(160deg, #ffe3b8 0%, #ffc98f 55%, #e8a05e 100%)',
+        accent: '#e8542f',
+        cta: '#b3541e',
+        tags: ['korea', 'nature', 'animated'],
+        icon: '🍂',
+        preview3d(v) {
+            const C = { grass: 0x8aa04e, path: 0xcabb9a, stone: 0x8d8578, stoneD: 0x6e675c,
+                wall: 0xf2e8d8, hanji: 0xfff6e0, pillar: 0x7a4b28, tile: 0x3d4148, tileD: 0x2b2e33,
+                ridge: 0xe8e2d4, maple: 0xe8542f, ginkgo: 0xffd166, trunk: 0x5c3a21, jar: 0x7a4a2e };
+            for (let x = -11; x <= 11; x++)
+            for (let z = -11; z <= 11; z++)
+                if (x * x + z * z <= 121) v.add(x, 1, z, Math.abs(z) < 3 ? C.path : ((x + z) % 3 ? C.grass : 0xb0a45a));
+            // 미니 한옥
+            v.box(-6, 2, -5, 4, 2, 3, C.stone);           // 기단
+            v.box(-5, 3, -4, 3, 6, 2, C.wall);            // 벽체
+            v.box(-4, 4, 2, -3, 6, 2, C.hanji); v.box(0, 4, 2, 1, 6, 2, C.hanji);
+            v.box(-5, 3, 2, -5, 6, 2, C.pillar); v.box(3, 3, 2, 3, 6, 2, C.pillar);
+            for (let x = -8; x <= 6; x++)                  // 곡선 기와지붕
+            for (let z = -7; z <= 5; z++) {
+                const slope = (1 - Math.abs(z + 1) / 6) * 3;
+                const curve = Math.max(0, Math.abs(x + 1) - 4) * 0.4;
+                v.add(x, 7 + Math.round(slope + curve), z, (x + z) % 2 ? C.tile : C.tileD);
+            }
+            v.box(-8, 10, -2, 6, 10, 0, C.ridge);          // 용마루
+            // 단풍나무 + 은행나무
+            v.box(8, 2, -6, 8, 6, -6, C.trunk);
+            v.sphere(8, 8, -6, 3, C.maple); v.sphere(9.5, 9.5, -4.5, 2, 0xc23a1c);
+            v.box(-9, 2, 6, -9, 5, 6, C.trunk);
+            v.sphere(-9, 7, 6, 2.6, C.ginkgo);
+            // 장독대
+            v.sphere(7, 3, 6, 1.6, C.jar); v.sphere(9, 3, 8, 1.3, C.jar);
+            // 낙엽
+            v.add(3, 2, 7, C.maple); v.add(-3, 2, -8, C.ginkgo); v.add(5, 2, -9, C.maple);
+        },
+    },
+    {
+        file: 'lib/ocean.html',
+        index: '006',
+        title: '산호초 바닷속',
+        desc: '바다거북이 유영하는 산호초 — 물고기 떼가 원을 그리고 물방울이 피어오르는 햇살 스민 바닷속 디오라마.',
+        badge: 'Animated 3D',
+        gradient: 'linear-gradient(180deg, #0a5f8e 0%, #084a72 55%, #032a44 100%)',
+        accent: '#22c8b0',
+        cta: '#22c8b0',
+        tags: ['ocean', 'animal', 'animated'],
+        icon: '🐠',
+        preview3d(v) {
+            const C = { sand: 0xd8c48e, sandD: 0xb8a26e, pink: 0xff6b9d, orange: 0xff8a5c,
+                purple: 0xa06bff, tube: 0x22c8b0, turtle: 0x4a9e5c, shell: 0x7a5c34,
+                shellD: 0x5c421f, skin: 0x8fce9b, kelp: 0x2e8f5a, bubble: 0xcdf4ff };
+            for (let x = -11; x <= 11; x++)
+            for (let z = -11; z <= 11; z++)
+                if (x * x + z * z <= 121) { v.add(x, 1, z, (x * 3 + z) % 5 ? C.sand : C.sandD); v.add(x, 0, z, C.sandD); }
+            // 산호
+            v.line(-7, 2, -4, -7, 8, -4, 1, C.pink);
+            v.line(-7, 5, -4, -10, 9, -5, 0.7, C.pink);
+            v.line(-7, 5, -4, -4, 9, -3, 0.7, C.pink);
+            v.line(6, 2, -7, 6, 7, -7, 0.9, C.purple);
+            v.line(6, 4, -7, 9, 8, -6, 0.6, C.purple);
+            v.sphere(8, 3, 4, 2.4, 0xffb0c8);
+            v.cylinderY(-4, 2, 6, 7, 1, C.tube); v.cylinderY(-2, 2, 5, 8, 0.8, C.tube);
+            for (let y = 2; y < 11; y++) v.add(-9 + Math.sin(y * 0.6) * 1.4, y, 6, C.kelp);
+            // 바다거북 (유영 중)
+            v.ellipsoid(1, 10, 0, 4, 2, 3, C.shell);
+            v.ellipsoid(1, 9, 0, 3, 1, 2, C.skin);
+            v.add(0, 12, 0, C.shellD); v.add(2, 12, 1, C.shellD); v.add(2, 12, -1, C.shellD);
+            v.sphere(6, 10, 0, 1.5, C.turtle);
+            v.add(7, 11, 1, 0x111111);
+            v.line(3, 9, 3, 6, 8, 5, 0.9, C.turtle);
+            v.line(3, 9, -3, 6, 8, -5, 0.9, C.turtle);
+            v.line(-2, 9, 2, -4, 8, 4, 0.7, C.turtle);
+            v.line(-2, 9, -2, -4, 8, -4, 0.7, C.turtle);
+            // 물방울
+            v.add(-6, 12, 2, C.bubble); v.add(-5, 15, 3, C.bubble); v.add(-7, 17, 2, C.bubble);
+            v.add(9, 13, -3, C.bubble); v.add(10, 16, -2, C.bubble);
+            // 불가사리
+            v.add(4, 2, 8, 0xff5c8a); v.add(5, 2, 8, 0xff5c8a); v.add(3, 2, 8, 0xff5c8a);
+            v.add(4, 2, 9, 0xff5c8a); v.add(4, 2, 7, 0xff5c8a);
+        },
+    },
+    {
+        file: 'lib/winter.html',
+        index: '007',
+        title: '겨울밤 오두막',
+        desc: '오로라가 넘실대는 겨울밤 — 함박눈, 굴뚝 연기 대신 창문의 온기, 눈사람과 소나무가 있는 아늑한 설원.',
+        badge: 'Animated 3D',
+        gradient: 'linear-gradient(180deg, #0b1230 0%, #16204a 55%, #26355e 100%)',
+        accent: '#7fe8c8',
+        cta: '#7fe8c8',
+        tags: ['winter', 'night', 'animated'],
+        icon: '❄️',
+        preview3d(v) {
+            const C = { snow: 0xf2f6ff, snowD: 0xd6e0f5, log: 0x6e4a2a, logD: 0x54361c,
+                roof: 0xf7faff, win: 0xffc978, pine: 0x2a5c42, pineSnow: 0xe8f0fa,
+                trunk: 0x4a3018, coal: 0x222222, carrot: 0xff8a3c, scarf: 0xd6455c, aurora: 0x54ffb0 };
+            for (let x = -11; x <= 11; x++)
+            for (let z = -11; z <= 11; z++)
+                if (x * x + z * z <= 121) { v.add(x, 1, z, (x + z * 2) % 6 ? C.snow : C.snowD); v.add(x, 0, z, C.snowD); }
+            // 통나무 오두막
+            for (let y = 2; y <= 6; y++) {
+                const c = y % 2 ? C.log : C.logD;
+                v.box(-7, y, -5, 1, y, -5, c); v.box(-7, y, 1, 1, y, 1, c);
+                v.box(-7, y, -5, -7, y, 1, c); v.box(1, y, -5, 1, y, 1, c);
+            }
+            for (let i = 0; i <= 3; i++) v.box(-8 + i, 7 + i, -6, 2 - i, 7 + i, 2, i > 1 ? C.roof : C.logD);
+            v.box(-4, 2, 1, -2, 5, 1, 0x8a5c30);      // 문
+            v.box(-6, 3, 1, -5, 5, 1, C.win);         // 따뜻한 창
+            v.box(0, 3, 1, 0, 5, 1, C.win);
+            v.box(0, 8, -4, 1, 11, -3, 0x7a7d85);     // 굴뚝
+            // 소나무
+            v.box(6, 2, -6, 6, 4, -6, C.trunk);
+            v.cylinderY(6, 4, 5, -6, 3, C.pine); v.ringY(6, 6, -6, 2.2, 0.7, C.pineSnow);
+            v.cylinderY(6, 6, 7, -6, 2, C.pine); v.cylinderY(6, 8, 9, -6, 1, C.pine);
+            v.add(6, 10, -6, C.pineSnow);
+            // 눈사람
+            v.sphere(6, 3, 6, 2, 0xffffff);
+            v.sphere(6, 6, 6, 1.4, 0xffffff);
+            v.add(7, 6, 7, C.coal); v.line(7, 6, 6, 8, 6, 6, 0.4, C.carrot);
+            v.torusY(6, 5, 6, 1.3, 0.5, C.scarf);
+            // 오로라 리본
+            for (let x = -9; x <= 9; x++) {
+                const y = 16 + Math.round(Math.sin(x * 0.5) * 2);
+                v.add(x, y, -9, C.aurora); v.add(x, y + 1, -9, 0x7fe8c8);
+            }
+            // 눈송이
+            v.add(-4, 11, 4, 0xffffff); v.add(3, 14, 2, 0xffffff); v.add(-8, 13, -2, 0xffffff);
+        },
+    },
+    {
+        file: 'lib/tinyplanet.html',
+        index: '008',
+        title: '미니 행성',
+        desc: '고리를 두른 자그마한 행성 — 위성과 우주선이 궤도를 돌고, 극지방 얼음과 초록 대륙 위에 작은 집 한 채.',
+        badge: 'Animated 3D',
+        gradient: 'radial-gradient(circle at 30% 20%, #1c2450 0%, #0c1030 45%, #050818 100%)',
+        accent: '#6b8aff',
+        cta: '#ffb85c',
+        tags: ['space', 'animated'],
+        icon: '🪐',
+        preview3d(v) {
+            const C = { ocean: 0x2e6ed6, grass: 0x5cb85c, sand: 0xe8cc8a, ice: 0xeaf5ff,
+                ring: 0xc8a86e, ringD: 0x9a7f4e, moon: 0xb8bcc8, star: 0xffffff,
+                rocket: 0xf4f8fb, nose: 0xe85c5c, flame: 0xffb85c };
+            const R = 7;
+            for (let x = -R; x <= R; x++)
+            for (let y = -R; y <= R; y++)
+            for (let z = -R; z <= R; z++) {
+                const d = Math.hypot(x, y, z);
+                if (d > R || d < R - 2) continue;
+                const cont = Math.sin(x * 0.8) + Math.cos(z * 0.7) + Math.sin(y * 0.6);
+                let c;
+                if (Math.abs(y) > R - 2) c = C.ice;
+                else if (cont > 0.5) c = Math.abs(y) < 2 ? C.sand : C.grass;
+                else c = C.ocean;
+                v.add(x, y + 9, z, c);
+            }
+            v.ringY(0, 9, 0, 11, 1, C.ring);           // 고리
+            v.ringY(0, 9, 0, 13, 0.6, C.ringD);
+            v.sphere(0, 18, -1, 1.6, C.moon);          // 위성
+            // 작은 우주선
+            v.box(9, 14, 5, 10, 15, 5, C.rocket);
+            v.add(10, 16, 5, C.nose); v.add(9, 13, 5, C.flame);
+            // 나무 한 그루 + 집
+            v.add(0, 17, 0, 0x5c3a21); v.sphere(0, 18, 0, 1.2, 0x2f8f45);
+            v.box(-5, 14, -3, -4, 15, -2, 0xfff2dd); v.add(-4, 16, -2, 0xe85c5c);
+            // 별
+            v.add(-10, 20, -8, C.star); v.add(11, 19, -6, C.star); v.add(-12, 12, 6, C.star);
+            v.add(8, 4, 10, C.star); v.add(-9, 2, -10, C.star); v.add(12, 8, 2, C.star);
+        },
     },
 ];

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 겨울밤 오두막</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(#0b1230 0%, #16204a 55%, #26355e 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 40%, rgba(3, 6, 18, 0.5) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #0b1230; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #7fe8c8;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(127, 232, 200, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #ffb35c; box-shadow: 0 0 24px rgba(255, 179, 92, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #8fa2cc; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(8, 14, 36, 0.62);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(200, 230, 255, 0.2);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.42); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #7fe8c8; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #ffb35c; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #dbe6f5; line-height: 1.8;
+            background: rgba(0,0,0,0.26); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>오로라 아래 눈 내리는 오두막을 짓고 있습니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">겨울밤 오두막</div>
+        <div class="subtitle">오로라 · 함박눈 · 굴뚝 연기 · 눈사람</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x141d42);
+        scene.fog = new THREE.FogExp2(0x1a2450, 0.0036);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(-70, 46, 92);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.3;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 14, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 240;
+        controls.minDistance = 22;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.75;
+
+        // 달빛 + 창문의 온기
+        scene.add(new THREE.AmbientLight(0x5a6b9e, 0.7));
+        scene.add(new THREE.HemisphereLight(0x8fa8e8, 0x1c2338, 0.7));
+        const moonLight = new THREE.DirectionalLight(0xbfd0ff, 1.1);
+        moonLight.position.set(-70, 110, 60);
+        moonLight.castShadow = true;
+        moonLight.shadow.mapSize.set(4096, 4096);
+        const d = 120;
+        moonLight.shadow.camera.left = -d; moonLight.shadow.camera.right = d;
+        moonLight.shadow.camera.top = d; moonLight.shadow.camera.bottom = -d;
+        moonLight.shadow.camera.near = 10; moonLight.shadow.camera.far = 400;
+        moonLight.shadow.bias = -0.0005;
+        scene.add(moonLight);
+        const hearth = new THREE.PointLight(0xffa04a, 2.0, 60, 2);
+        hearth.position.set(-8, 8, 12);
+        scene.add(hearth);
+
+        const P = {
+            snow: 0xf2f6ff, snowShade: 0xd6e0f5, ice: 0xbfe0f5,
+            log: 0x6e4a2a, logD: 0x54361c, roofSnow: 0xf7faff, door: 0x8a5c30,
+            winWarm: 0xffc978, winGlow: 0xffe8b0, chimney: 0x7a7d85,
+            pine: 0x2a5c42, pineD: 0x1d4230, pineSnow: 0xe8f0fa, trunk: 0x4a3018,
+            snowman: 0xffffff, carrot: 0xff8a3c, coal: 0x222222, scarf: 0xd6455c, hat: 0x333333,
+            lamp: 0x3a3f48, lampGlow: 0xffd88f, moon: 0xf5f2ff, star: 0xffffff,
+        };
+
+        const v = new VoxelBuilder();
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(20261225);
+
+        function snowfield() {
+            for (let x = -68; x <= 68; x++) {
+                for (let z = -58; z <= 58; z++) {
+                    const h = Math.floor(Math.sin(x * 0.06) * 2 + Math.cos(z * 0.07) * 2);
+                    v.add(x, h, z, rng() > 0.85 ? P.snowShade : P.snow);
+                    v.add(x, h - 1, z, P.snowShade);
+                    if (rng() > 0.997) v.add(x, h + 1, z, P.ice); // 반짝이는 얼음 알갱이
+                }
+            }
+            // 얼어붙은 연못
+            for (let x = -40; x <= -22; x++) for (let z = 16; z <= 32; z++) {
+                if (Math.hypot(x + 31, z - 24) < 9) v.add(x, 0, z, (x + z) % 3 ? P.ice : 0xd8f0fa);
+            }
+        }
+
+        function cabin() {
+            const cx = -6, cz = 6, w = 11, dd = 8, h = 10;
+            for (let y = 1; y <= h; y++) { // 통나무 벽
+                const c = y % 2 ? P.log : P.logD;
+                v.box(cx - w, y, cz - dd, cx + w, y, cz - dd + 1, c);
+                v.box(cx - w, y, cz + dd - 1, cx + w, y, cz + dd, c);
+                v.box(cx - w, y, cz - dd, cx - w + 1, y, cz + dd, c);
+                v.box(cx + w - 1, y, cz - dd, cx + w, y, cz + dd, c);
+            }
+            v.box(cx - w, h, cz - dd, cx + w, h, cz + dd, P.logD); // 천장
+            for (let i = 0; i <= 7; i++) { // 눈 쌓인 박공지붕
+                const y = h + 1 + i;
+                const half = w + 2 - i * 1.6;
+                if (half < 1) break;
+                v.box(cx - half, y, cz - dd - 1, cx + half, y, cz + dd + 1, i > 5 ? P.roofSnow : (i % 2 ? P.logD : P.log));
+                v.box(cx - half, y + 1, cz - dd - 1, cx + half, y + 1, cz - dd - 1, P.roofSnow);
+                v.box(cx - half, y + 1, cz + dd + 1, cx + half, y + 1, cz + dd + 1, P.roofSnow);
+            }
+            v.box(cx - 2, 1, cz + dd, cx + 2, 7, cz + dd + 1, P.door); // 문
+            v.add(cx + 1, 4, cz + dd + 1, 0xffd166);
+            for (const wx of [cx - 7, cx + 5]) { // 따뜻한 창
+                v.box(wx, 4, cz + dd, wx + 3, 7, cz + dd + 1, P.winWarm);
+                v.box(wx + 1, 4, cz + dd + 1, wx + 1, 7, cz + dd + 1, P.logD);
+                v.box(wx, 5, cz + dd + 1, wx + 3, 5, cz + dd + 1, P.logD);
+            }
+            v.box(cx - 6, 4, cz - dd - 1, cx - 3, 7, cz - dd, P.winWarm); // 뒷창
+            v.box(cx + 5, h + 2, cz - 3, cx + 8, h + 9, cz, P.chimney); // 굴뚝
+            v.box(cx + 4, h + 9, cz - 4, cx + 9, h + 10, cz + 1, P.chimney);
+            // 장작더미
+            for (let i = 0; i < 5; i++) v.cylinderZ(cx - w - 4, 2 + Math.floor(i / 3) * 2, cz - 4 + (i % 3) * 3, cz - 2 + (i % 3) * 3, 1.2, i % 2 ? P.log : P.logD);
+        }
+
+        function pineTree(x, z, h) {
+            v.box(x, 0, z, x + 1, 3, z + 1, P.trunk);
+            for (let i = 0; i < h; i++) {
+                const y = 3 + i * 2;
+                const r = Math.max(1.5, (h - i) * 1.4);
+                v.cylinderY(x, y, y + 1, z, r, i % 2 ? P.pine : P.pineD);
+                v.ringY(x, y + 1, z, r * 0.8, 0.8, P.pineSnow); // 가지 위 눈
+            }
+            v.add(x, 3 + h * 2, z, P.pineSnow);
+        }
+
+        function snowman() {
+            const sx = 18, sz = 22;
+            v.sphere(sx, 3, sz, 3.6, P.snowman);
+            v.sphere(sx, 8, sz, 2.7, P.snowman);
+            v.sphere(sx, 12, sz, 2, P.snowman);
+            v.add(sx + 1, 13, sz + 1, P.coal); v.add(sx + 1, 13, sz - 1, P.coal);
+            v.line(sx + 2, 12, sz, sx + 5, 12, sz, 0.5, P.carrot);
+            for (let i = 0; i < 3; i++) v.add(sx + 2, 8 - i * 2 + 2, sz, P.coal);
+            v.torusY(sx, 10, sz, 2.4, 0.7, P.scarf);
+            v.line(sx + 1, 9, sz + 2, sx + 2, 6, sz + 3, 0.6, P.scarf);
+            v.cylinderY(sx, 14, 14, sz, 2.4, P.hat);
+            v.cylinderY(sx, 15, 17, sz, 1.6, P.hat);
+            v.line(sx - 3, 9, sz, sx - 7, 12, sz - 1, 0.4, P.trunk); // 나뭇가지 팔
+            v.line(sx + 3, 9, sz, sx + 7, 11, sz + 1, 0.4, P.trunk);
+        }
+
+        function lampPost() {
+            v.box(30, 0, -6, 31, 9, -5, P.lamp);
+            v.box(29, 9, -7, 32, 11, -4, P.lampGlow);
+            v.box(29, 12, -7, 32, 12, -4, P.lamp);
+        }
+
+        function skyDeco() {
+            v.sphere(66, 88, -62, 8, P.moon);
+            v.sphere(61, 92, -58, 3.5, 0xd8d2f0);
+            for (let i = 0; i < 80; i++) {
+                v.add(-120 + rng() * 240, 60 + rng() * 55, -110 + rng() * 70, P.star);
+            }
+            for (let mx = -110; mx <= 110; mx += 16) { // 설산 능선
+                const peak = 26 + rng() * 26;
+                const bz = -88 + rng() * 8;
+                for (let y = -2; y < peak; y++) {
+                    const wdt = Math.max(1, Math.floor((peak - y) * 0.45));
+                    v.box(mx - wdt, y, bz - 3, mx + wdt, y, bz + 3, y > peak * 0.55 ? P.snow : 0x3e4a6e);
+                }
+            }
+        }
+
+        snowfield();
+        cabin();
+        pineTree(-38, -18, 6); pineTree(-46, -6, 5); pineTree(34, -24, 7);
+        pineTree(44, 6, 5); pineTree(24, -38, 6); pineTree(-24, -34, 5);
+        snowman();
+        lampPost();
+        skyDeco();
+
+        // 오로라 (애니메이션 리본)
+        const auroraGroup = new THREE.Group();
+        scene.add(auroraGroup);
+        const auroraStrips = [];
+        const auroraColors = [0x54ffb0, 0x7fe8c8, 0x9b8aff];
+        for (let band = 0; band < 3; band++) {
+            for (let i = 0; i < 26; i++) {
+                const m = new THREE.Mesh(
+                    new THREE.BoxGeometry(3.4, 16 - band * 3, 1),
+                    new THREE.MeshBasicMaterial({ color: auroraColors[band], transparent: true, opacity: 0.16 })
+                );
+                m.userData = { i, band };
+                auroraGroup.add(m);
+                auroraStrips.push(m);
+            }
+        }
+
+        // 함박눈 (애니메이션)
+        const snowGroup = new THREE.Group();
+        scene.add(snowGroup);
+        const flakeGeo = new THREE.BoxGeometry(0.7, 0.7, 0.7);
+        const flakeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+        const flakes = [];
+        for (let i = 0; i < 110; i++) {
+            const f = new THREE.Mesh(flakeGeo, flakeMat);
+            f.userData = { x: -60 + rng() * 120, z: -55 + rng() * 110, speed: 3 + rng() * 4, sway: 1.5 + rng() * 2.5, phase: rng() * Math.PI * 2, top: 45 + rng() * 25 };
+            snowGroup.add(f);
+            flakes.push(f);
+        }
+
+        scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.88, metalness: 0.03 }));
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+            for (const strip of auroraStrips) {
+                const { i, band } = strip.userData;
+                const x = -62 + i * 5;
+                strip.position.set(
+                    x,
+                    72 + band * 9 + Math.sin(t * 0.7 + i * 0.45 + band * 2) * 6,
+                    -70 - band * 8 + Math.cos(t * 0.5 + i * 0.3) * 4);
+                strip.material.opacity = 0.1 + (Math.sin(t * 1.4 + i * 0.5 + band) * 0.5 + 0.5) * 0.16;
+            }
+            for (const f of flakes) {
+                const u = f.userData;
+                const cycle = (t * u.speed / u.top + u.phase) % 1;
+                f.position.set(u.x + Math.sin(t * 1.2 + u.phase) * u.sway, u.top * (1 - cycle), u.z + Math.cos(t * 0.8 + u.phase) * u.sway * 0.5);
+            }
+            hearth.intensity = 1.8 + Math.sin(t * 5.4) * 0.35 + Math.sin(t * 11.7) * 0.15;
+            controls.target.y = 14 + Math.sin(t * 1.0) * 1.2;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

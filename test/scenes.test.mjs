@@ -106,6 +106,14 @@ const classicMatches = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
 ok(classicMatches.length >= 1, 'index.html has a classic script');
 for (const [i, m] of classicMatches.entries()) checkScript(m[1], '.js', `index.html classic script #${i + 1}`);
 
+// every scene page's module script must parse too
+for (const file of htmlFiles) {
+    if (file === 'index.html') continue;
+    const text = fs.readFileSync(file, 'utf8');
+    const m = text.match(/<script type="module">([\s\S]*?)<\/script>/);
+    if (m) checkScript(m[1], '.mjs', `${file} module script`);
+}
+
 fs.rmdirSync(tmpdir);
 
 if (failures) {

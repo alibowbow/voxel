@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 스튜디오 — 나만의 복셀 아트 만들기</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root { --panel: rgba(10, 14, 30, 0.78); --line: rgba(255,255,255,0.14); --accent: #ffd84d; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(#141b3d 0%, #1d2650 55%, #2a3468 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+
+        /* 좌측 도구 패널 */
+        #panel {
+            position: fixed; top: 16px; left: 16px; z-index: 10;
+            width: 216px; padding: 16px 16px 14px;
+            background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            color: #fff; box-shadow: 0 14px 34px rgba(0,0,0,0.4);
+        }
+        #panel h1 { margin: 0 0 2px; font-size: 17px; font-weight: 900; letter-spacing: 1px; color: var(--accent); }
+        #panel .sub { font-size: 11px; color: #9aa4c8; margin-bottom: 12px; }
+        #palette { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-bottom: 12px; }
+        .swatch { aspect-ratio: 1; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: transform 0.12s; }
+        .swatch:hover { transform: scale(1.12); }
+        .swatch.sel { border-color: #fff; box-shadow: 0 0 8px rgba(255,255,255,0.5); }
+        .btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+        .btn {
+            font-family: inherit; font-size: 12px; font-weight: 700; color: #dfe6ff;
+            background: rgba(255,255,255,0.07); border: 1px solid var(--line); border-radius: 8px;
+            padding: 8px 4px; cursor: pointer; transition: background 0.15s, color 0.15s;
+        }
+        .btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
+        .btn.on { background: var(--accent); color: #241d00; border-color: transparent; }
+        .btn.wide { grid-column: span 2; }
+        #count { margin-top: 10px; font-size: 11px; color: #9aa4c8; text-align: center; }
+        #count b { color: #fff; }
+
+        /* 하단 안내 */
+        #hint {
+            position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 10;
+            background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+            padding: 8px 18px; color: #cdd6f5; font-size: 12px; white-space: nowrap;
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        }
+        #hint b { color: #fff; }
+
+        /* 갤러리로 돌아가기 */
+        #back {
+            position: fixed; top: 16px; right: 16px; z-index: 10; text-decoration: none;
+            background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+            padding: 8px 16px; color: #cdd6f5; font-size: 12px; font-weight: 700;
+        }
+        #back:hover { color: #fff; }
+
+        /* 토스트 */
+        #toast {
+            position: fixed; top: 64px; left: 50%; transform: translateX(-50%) translateY(-8px); z-index: 20;
+            background: var(--accent); color: #241d00; font-size: 13px; font-weight: 900;
+            padding: 10px 22px; border-radius: 999px; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s; box-shadow: 0 10px 26px rgba(0,0,0,0.35);
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        @media (max-width: 640px) {
+            #panel { width: 188px; padding: 12px; }
+            #hint { font-size: 11px; padding: 7px 12px; max-width: calc(100vw - 24px); overflow: hidden; text-overflow: ellipsis; }
+        }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="panel">
+        <h1>복셀 스튜디오</h1>
+        <div class="sub">블록을 쌓아 나만의 작품을 만들어 보세요</div>
+        <div id="palette"></div>
+        <div class="btnrow">
+            <button class="btn" id="eraser">🧽 지우개</button>
+            <button class="btn" id="undo">↩️ 되돌리기</button>
+            <button class="btn" id="save">📷 PNG 저장</button>
+            <button class="btn" id="share">🔗 링크 공유</button>
+            <button class="btn wide" id="clear">🗑️ 전체 지우기</button>
+        </div>
+        <div id="count">블록 <b>0</b>개</div>
+    </div>
+    <a id="back" href="../index.html">← 갤러리</a>
+    <div id="hint"><b>클릭</b> 블록 놓기 · <b>우클릭</b> 지우기 · <b>드래그</b> 회전 · <b>스크롤</b> 확대</div>
+    <div id="toast"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ==========================================
+        // 1. 씬 · 렌더러 · 카메라
+        // ==========================================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a2148);
+        scene.fog = new THREE.FogExp2(0x1a2148, 0.006);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.5, 600);
+        camera.position.set(26, 24, 34);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 5, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.maxDistance = 140;
+        controls.minDistance = 8;
+        controls.maxPolarAngle = Math.PI / 2 + 0.02;
+
+        scene.add(new THREE.AmbientLight(0xd8e2ff, 0.6));
+        scene.add(new THREE.HemisphereLight(0xbfd0ff, 0x2a2438, 0.7));
+        const sun = new THREE.DirectionalLight(0xfff2dd, 1.9);
+        sun.position.set(40, 70, 30);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        sun.shadow.camera.left = -40; sun.shadow.camera.right = 40;
+        sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40;
+        sun.shadow.camera.near = 10; sun.shadow.camera.far = 200;
+        sun.shadow.bias = -0.0004;
+        scene.add(sun);
+
+        // ==========================================
+        // 2. 작업대 (24×24, 높이 24)
+        // ==========================================
+        const HALF = 12, MAXY = 24;
+        const base = new THREE.Mesh(
+            new THREE.BoxGeometry(HALF * 2 + 2, 1, HALF * 2 + 2),
+            new THREE.MeshStandardMaterial({ color: 0x2e3860, roughness: 0.9 }));
+        base.position.y = -0.5;
+        base.receiveShadow = true;
+        scene.add(base);
+
+        const grid = new THREE.GridHelper(HALF * 2, HALF * 2, 0x5a6aaa, 0x39457e);
+        grid.position.y = 0.01;
+        scene.add(grid);
+
+        // 레이캐스트용 투명 바닥판
+        const groundPlane = new THREE.Mesh(
+            new THREE.PlaneGeometry(HALF * 2, HALF * 2),
+            new THREE.MeshBasicMaterial({ visible: false }));
+        groundPlane.rotation.x = -Math.PI / 2;
+        scene.add(groundPlane);
+
+        // ==========================================
+        // 3. 복셀 저장소
+        // ==========================================
+        const PALETTE = [
+            0xff4757, 0xff8a3c, 0xffd84d, 0x7bed9f, 0x2ed573, 0x1cc8ff, 0x5352ed, 0xa55eea,
+            0xff6bb5, 0xffffff, 0xb8c2d8, 0x57606f, 0x2f3542, 0x8b5a2b, 0xd8a86e, 0x22c8b0,
+        ];
+        let colorIndex = 0;
+        let eraseMode = false;
+
+        const voxelGeo = new THREE.BoxGeometry(0.96, 0.96, 0.96);
+        const matCache = new Map();
+        const getMat = (hex) => {
+            if (!matCache.has(hex)) matCache.set(hex, new THREE.MeshStandardMaterial({ color: hex, roughness: 0.75, metalness: 0.05 }));
+            return matCache.get(hex);
+        };
+
+        const voxels = new Map();       // "x,y,z" -> mesh
+        const voxelGroup = new THREE.Group();
+        scene.add(voxelGroup);
+        const undoStack = [];
+
+        const key = (x, y, z) => `${x},${y},${z}`;
+        const inBounds = (x, y, z) => x >= -HALF && x < HALF && z >= -HALF && z < HALF && y >= 0 && y < MAXY;
+
+        function addVoxel(x, y, z, ci, recordUndo = true) {
+            const k = key(x, y, z);
+            if (voxels.has(k) || !inBounds(x, y, z)) return false;
+            const mesh = new THREE.Mesh(voxelGeo, getMat(PALETTE[ci]));
+            mesh.position.set(x + 0.5, y + 0.5, z + 0.5);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.userData = { k, ci };
+            voxelGroup.add(mesh);
+            voxels.set(k, mesh);
+            if (recordUndo) pushUndo({ op: 'add', k });
+            return true;
+        }
+
+        function removeVoxel(mesh, recordUndo = true) {
+            const { k, ci } = mesh.userData;
+            voxelGroup.remove(mesh);
+            voxels.delete(k);
+            if (recordUndo) pushUndo({ op: 'del', k, ci });
+        }
+
+        function pushUndo(entry) {
+            undoStack.push(entry);
+            if (undoStack.length > 400) undoStack.shift();
+            persist();
+        }
+
+        function undo() {
+            const e = undoStack.pop();
+            if (!e) return;
+            if (e.op === 'add') {
+                const m = voxels.get(e.k);
+                if (m) removeVoxel(m, false);
+            } else if (e.op === 'del') {
+                const [x, y, z] = e.k.split(',').map(Number);
+                addVoxel(x, y, z, e.ci, false);
+            } else if (e.op === 'clear') {
+                for (const [k, ci] of e.entries) {
+                    const [x, y, z] = k.split(',').map(Number);
+                    addVoxel(x, y, z, ci, false);
+                }
+            }
+            persist();
+        }
+
+        // ==========================================
+        // 4. 저장 · 공유 (localStorage + URL 해시)
+        // ==========================================
+        const STORE = 'voxel-studio-v1';
+
+        function serialize() {
+            const list = [];
+            for (const m of voxels.values()) {
+                const [x, y, z] = m.userData.k.split(',').map(Number);
+                list.push([x, y, z, m.userData.ci]);
+            }
+            return list;
+        }
+
+        function encode(list) {
+            return btoa(JSON.stringify(list)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        function decode(str) {
+            const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+            return JSON.parse(atob(b64));
+        }
+
+        let persistTimer = null;
+        function persist() {
+            updateCount();
+            clearTimeout(persistTimer);
+            persistTimer = setTimeout(() => {
+                try { localStorage.setItem(STORE, JSON.stringify(serialize())); } catch (e) { /* 저장 공간 없음 */ }
+            }, 250);
+        }
+
+        function loadInitial() {
+            // 1) 공유 링크 → 2) 이전 작업 → 3) 시작 모델(하트)
+            try {
+                if (location.hash.startsWith('#v=')) {
+                    const list = decode(location.hash.slice(3));
+                    for (const [x, y, z, ci] of list) addVoxel(x, y, z, ci % PALETTE.length, false);
+                    showToast('공유된 작품을 불러왔어요! 🎨');
+                    return;
+                }
+            } catch (e) { /* 잘못된 해시는 무시 */ }
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+                if (saved && saved.length) {
+                    for (const [x, y, z, ci] of saved) addVoxel(x, y, z, ci % PALETTE.length, false);
+                    return;
+                }
+            } catch (e) { /* 손상된 저장본은 무시 */ }
+            const HEART = [ // 시작 모델: 작은 하트
+                [-2, 3, 0], [-1, 4, 0], [0, 3, 0], [1, 4, 0], [2, 3, 0],
+                [-2, 2, 0], [-1, 2, 0], [0, 2, 0], [1, 2, 0], [2, 2, 0],
+                [-1, 1, 0], [0, 1, 0], [1, 1, 0], [0, 0, 0],
+            ];
+            for (const [x, y, z] of HEART) addVoxel(x, y + 1, z, 0, false);
+            updateCount();
+        }
+
+        // ==========================================
+        // 5. 편집 상호작용 (클릭 = 놓기, 우클릭 = 지우기)
+        // ==========================================
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+
+        const ghost = new THREE.Mesh(voxelGeo, new THREE.MeshStandardMaterial({
+            color: PALETTE[0], transparent: true, opacity: 0.45, depthWrite: false }));
+        ghost.visible = false;
+        scene.add(ghost);
+
+        function pickCell(clientX, clientY) {
+            pointer.x = (clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+            const hits = raycaster.intersectObjects([groundPlane, ...voxelGroup.children], false);
+            if (!hits.length) return null;
+            const hit = hits[0];
+            const isVoxel = hit.object !== groundPlane;
+            const n = hit.face.normal.clone();
+            if (isVoxel) n.applyQuaternion(hit.object.quaternion);
+            const p = hit.point.clone().add(n.multiplyScalar(0.5));
+            const cell = { x: Math.floor(p.x), y: Math.max(0, Math.floor(p.y)), z: Math.floor(p.z) };
+            return { cell, targetMesh: isVoxel ? hit.object : null };
+        }
+
+        let hover = null;
+        function updateGhost(clientX, clientY) {
+            hover = pickCell(clientX, clientY);
+            if (!hover) { ghost.visible = false; return; }
+            if (eraseMode) {
+                if (hover.targetMesh) {
+                    ghost.visible = true;
+                    ghost.material.color.setHex(0xff4757);
+                    ghost.material.opacity = 0.55;
+                    ghost.position.copy(hover.targetMesh.position);
+                } else ghost.visible = false;
+            } else {
+                const { x, y, z } = hover.cell;
+                if (!inBounds(x, y, z) || voxels.has(key(x, y, z))) { ghost.visible = false; return; }
+                ghost.visible = true;
+                ghost.material.color.setHex(PALETTE[colorIndex]);
+                ghost.material.opacity = 0.45;
+                ghost.position.set(x + 0.5, y + 0.5, z + 0.5);
+            }
+        }
+
+        function act(clientX, clientY, forceErase) {
+            const picked = pickCell(clientX, clientY);
+            if (!picked) return;
+            if (forceErase || eraseMode) {
+                if (picked.targetMesh) removeVoxel(picked.targetMesh);
+            } else {
+                const { x, y, z } = picked.cell;
+                addVoxel(x, y, z, colorIndex);
+            }
+            updateGhost(clientX, clientY);
+        }
+
+        let downPos = null, downButton = 0;
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+            downPos = [e.clientX, e.clientY];
+            downButton = e.button;
+        });
+        renderer.domElement.addEventListener('pointerup', (e) => {
+            if (!downPos) return;
+            const moved = Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]);
+            if (moved < 6) act(e.clientX, e.clientY, downButton === 2);
+            downPos = null;
+        });
+        renderer.domElement.addEventListener('pointermove', (e) => updateGhost(e.clientX, e.clientY));
+        renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // ==========================================
+        // 6. UI 배선
+        // ==========================================
+        const paletteEl = document.getElementById('palette');
+        PALETTE.forEach((hex, i) => {
+            const s = document.createElement('div');
+            s.className = 'swatch' + (i === 0 ? ' sel' : '');
+            s.style.background = '#' + hex.toString(16).padStart(6, '0');
+            s.addEventListener('click', () => {
+                colorIndex = i;
+                eraseMode = false;
+                document.getElementById('eraser').classList.remove('on');
+                paletteEl.querySelectorAll('.swatch').forEach((el, j) => el.classList.toggle('sel', j === i));
+            });
+            paletteEl.appendChild(s);
+        });
+
+        document.getElementById('eraser').addEventListener('click', (e) => {
+            eraseMode = !eraseMode;
+            e.currentTarget.classList.toggle('on', eraseMode);
+        });
+        document.getElementById('undo').addEventListener('click', undo);
+        document.getElementById('clear').addEventListener('click', () => {
+            if (!voxels.size) return;
+            const entries = [...voxels.values()].map(m => [m.userData.k, m.userData.ci]);
+            pushUndo({ op: 'clear', entries });
+            for (const m of [...voxels.values()]) removeVoxel(m, false);
+            persist();
+        });
+        document.getElementById('save').addEventListener('click', () => {
+            renderer.render(scene, camera);
+            const a = document.createElement('a');
+            a.download = 'my-voxel-art.png';
+            a.href = renderer.domElement.toDataURL('image/png');
+            a.click();
+            showToast('PNG로 저장했어요! 📷');
+        });
+        document.getElementById('share').addEventListener('click', async () => {
+            const hash = '#v=' + encode(serialize());
+            const url = location.origin + location.pathname + hash;
+            history.replaceState(null, '', hash);
+            try {
+                await navigator.clipboard.writeText(url);
+                showToast('공유 링크를 복사했어요! 친구에게 보내보세요 🔗');
+            } catch (e) {
+                showToast('주소창의 URL을 복사해서 공유하세요 🔗');
+            }
+        });
+
+        function updateCount() {
+            document.querySelector('#count b').textContent = voxels.size;
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+        }
+
+        // ==========================================
+        // 7. 시작
+        // ==========================================
+        loadInitial();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
