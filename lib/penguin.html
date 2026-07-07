@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 남극 펭귄 마을</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(180deg, #bfe8ff 0%, #8fd0f5 55%, #5a9ec8 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 45%, rgba(10, 34, 58, 0.38) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #16324e; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #5cc8ff;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(92, 200, 255, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #ffd98a; box-shadow: 0 0 24px rgba(255, 217, 138, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #9cc4e0; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(10, 32, 52, 0.6);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(200, 236, 255, 0.28);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.4); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #5cc8ff; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #ffd98a; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #dcecfa; line-height: 1.8;
+            background: rgba(0,0,0,0.28); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>낮은 태양 아래 펭귄 마을과 빙산을 깎고 있습니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">남극 펭귄 마을</div>
+        <div class="subtitle">빙산 · 이글루 · 헤엄치는 펭귄 · 눈보라</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xa9d9f2);
+        scene.fog = new THREE.FogExp2(0xa9d9f2, 0.0032);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(-58, 40, 84);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 9, 4);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 240;
+        controls.minDistance = 22;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.7;
+
+        // 극지의 차가운 하늘빛 + 낮게 걸린 태양의 온기
+        scene.add(new THREE.AmbientLight(0x9fb8d8, 0.6));
+        scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x5a7f9e, 0.75));
+        const sunLight = new THREE.DirectionalLight(0xffe2b8, 1.35);
+        sunLight.position.set(58, 44, -52);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.set(4096, 4096);
+        const d = 110;
+        sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
+        sunLight.shadow.camera.near = 10; sunLight.shadow.camera.far = 400;
+        sunLight.shadow.bias = -0.0005;
+        scene.add(sunLight);
+        const sunGlow = new THREE.PointLight(0xffcf8f, 1.1, 240, 1.8);
+        sunGlow.position.set(52, 32, -48);
+        scene.add(sunGlow);
+
+        const P = {
+            snow: 0xf4f9ff, snowShade: 0xdcebf8, iceWall: 0xbfe8ff, iceDeep: 0x8fd0f5,
+            sea: 0x2e7fb8, seaLight: 0x4a9fd4, seaDeep: 0x21618f, foam: 0xd8f2ff,
+            pengBlack: 0x22262e, pengWhite: 0xf5f8ff, orange: 0xffa03c, earPatch: 0xffc45c,
+            chick: 0xb9c2cf, chickHead: 0x2a2e36, chickFace: 0xf0f4fa,
+            seal: 0x8a929e, sealBelly: 0xb8c2cc, eye: 0x0b0e14,
+            sun: 0xffd98a, sunCore: 0xffe9b8, entrance: 0x35506e, mount: 0x9cc0dc,
+        };
+
+        const v = new VoxelBuilder();
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(20260707);
+
+        function shelfH(x, z) {
+            return 3 + Math.floor(Math.sin(x * 0.08) * 1.5 + Math.cos(z * 0.09) * 1.5);
+        }
+
+        // 빙붕(z<=10) + 얼음 바다(z>10)
+        function terrain() {
+            for (let x = -68; x <= 68; x++) {
+                for (let z = -58; z <= 58; z++) {
+                    if (z <= 10) {
+                        const h = shelfH(x, z);
+                        v.add(x, h, z, rng() > 0.86 ? P.snowShade : P.snow);
+                        v.add(x, Math.max(0, h - 1), z, P.snowShade);
+                        if (z > 7) for (let y = 0; y < h - 1; y++) v.add(x, y, z, P.iceWall); // 빙벽 단면
+                        if (rng() > 0.996) v.add(x, h + 1, z, P.iceWall); // 반짝이는 얼음 알갱이
+                    } else {
+                        const wave = Math.sin(x * 0.24 + z * 0.37) > 0.55;
+                        v.add(x, 1, z, wave ? P.seaLight : P.sea);
+                        v.add(x, 0, z, P.seaDeep);
+                        if (z < 14 && rng() > 0.55) v.add(x, 1, z, P.foam); // 해안 포말
+                    }
+                }
+            }
+        }
+
+        // 유빙 (바다 위 납작한 얼음판)
+        function floe(cx, cz, r) {
+            v.cylinderY(cx, 1, 2, cz, r, P.snowShade);
+            v.ringY(cx, 2, cz, r * 0.6, r * 0.35, P.snow);
+            v.ringY(cx, 1, cz, r, 0.9, P.iceWall);
+        }
+
+        // 대형 빙산
+        function iceberg(cx, cz, hgt, base) {
+            for (let y = 0; y <= hgt; y++) {
+                const r = Math.max(1.5, base - y * (base - 2) / hgt - Math.sin(y * 1.7) * 1.3);
+                v.cylinderY(cx + Math.sin(y * 0.6) * 2, y, y, cz + Math.cos(y * 0.5) * 2, r,
+                    y % 5 === 0 ? P.iceDeep : (y % 2 ? P.snow : P.iceWall));
+            }
+            v.add(cx, hgt + 1, cz, P.snow);
+        }
+
+        // 이글루 (블록 무늬 돔 + 입구 터널)
+        function igloo(cx, cz) {
+            const gy = shelfH(cx, cz) + 1;
+            v.cylinderY(cx, gy - 2, gy - 1, cz, 9, P.snow); // 다져진 눈 마당
+            const R = 7;
+            for (let y = 0; y <= R; y++) {
+                const r = Math.sqrt(Math.max(0, R * R - y * y));
+                if (r < 0.8) break;
+                v.cylinderY(cx, gy + y, gy + y, cz, r, y % 2 ? P.snowShade : P.snow, true);
+            }
+            v.add(cx, gy + R, cz, P.snow);
+            for (let y = 1; y <= 5; y += 2) v.ringY(cx, gy + y, cz, Math.sqrt(R * R - y * y), 0.5, P.iceWall); // 블록 줄눈
+            v.cylinderZ(cx, gy + 2, cz + 5, cz + 9, 3, P.snowShade); // 입구 터널
+            v.cylinderZ(cx, gy + 2, cz + 7, cz + 9, 1.8, P.entrance); // 어두운 입구
+            v.box(cx - 4, gy, cz + 9, cx + 4, gy, cz + 12, P.snowShade); // 문 앞 눈길
+        }
+
+        // 어른 황제펭귄 — pose: 'stand' | 'wave' | 'sky'
+        function penguin(x, z, ang, pose) {
+            const gy = shelfH(x, z) + 1;
+            const dx = Math.cos(ang), dz = Math.sin(ang);
+            const px = -dz, pz = dx;
+            const B = P.pengBlack, W = P.pengWhite;
+            v.add(x + px * 1.3 + dx, gy, z + pz * 1.3 + dz, P.orange); // 발
+            v.add(x - px * 1.3 + dx, gy, z - pz * 1.3 + dz, P.orange);
+            v.ellipsoid(x, gy + 5, z, 3, 5, 3, B); // 몸통
+            v.ellipsoid(Math.round(x + dx * 1.7), gy + 4, Math.round(z + dz * 1.7), 2, 3, 2, W); // 흰 배
+            v.sphere(x + dx * 2.2 + px * 1.4, gy + 8, z + dz * 2.2 + pz * 1.4, 1, W); // 볼
+            v.sphere(x + dx * 2.2 - px * 1.4, gy + 8, z + dz * 2.2 - pz * 1.4, 1, W);
+            v.add(x + px * 2.6, gy + 7, z + pz * 2.6, P.earPatch); // 황금빛 귀깃
+            v.add(x - px * 2.6, gy + 7, z - pz * 2.6, P.earPatch);
+            v.add(x + dx * 3.1 + px * 1.1, gy + 8, z + dz * 3.1 + pz * 1.1, P.eye); // 눈
+            v.add(x + dx * 3.1 - px * 1.1, gy + 8, z + dz * 3.1 - pz * 1.1, P.eye);
+            if (pose === 'sky') v.line(x + dx * 2.5, gy + 8, z + dz * 2.5, x + dx * 4, gy + 10.5, z + dz * 4, 0.4, P.orange); // 하늘 보는 부리
+            else v.line(x + dx * 2.5, gy + 7.6, z + dz * 2.5, x + dx * 4.6, gy + 7, z + dz * 4.6, 0.4, P.orange);
+            if (pose === 'wave') { // 한쪽 날개 번쩍
+                v.line(x + px * 3, gy + 6, z + pz * 3, x + px * 4.6, gy + 10.5, z + pz * 4.6, 0.5, B);
+                v.line(x - px * 3, gy + 6.5, z - pz * 3, x - px * 3.6, gy + 3, z - pz * 3.6, 0.5, B);
+            } else {
+                v.line(x + px * 3, gy + 6.5, z + pz * 3, x + px * 3.6, gy + 3, z + pz * 3.6, 0.5, B);
+                v.line(x - px * 3, gy + 6.5, z - pz * 3, x - px * 3.6, gy + 3, z - pz * 3.6, 0.5, B);
+            }
+            v.add(x - dx * 3, gy + 3, z - dz * 3, B); // 꽁지
+        }
+
+        // 아기 펭귄 (회색 솜털)
+        function chick(x, z, ang) {
+            const gy = shelfH(x, z) + 1;
+            const dx = Math.cos(ang), dz = Math.sin(ang);
+            const px = -dz, pz = dx;
+            v.add(x + px * 1.2 + dx * 0.5, gy, z + pz * 1.2 + dz * 0.5, P.orange); // 발
+            v.add(x - px * 1.2 + dx * 0.5, gy, z - pz * 1.2 + dz * 0.5, P.orange);
+            v.ellipsoid(x, gy + 2, z, 2, 2, 2, P.chick); // 통통한 몸
+            v.sphere(x, gy + 4.4, z, 1.7, P.chickHead); // 검은 머리
+            v.sphere(x + dx * 1.3, gy + 4.4, z + dz * 1.3, 0.9, P.chickFace); // 흰 얼굴
+            v.add(x + dx * 1.7 + px * 0.9, gy + 5, z + dz * 1.7 + pz * 0.9, P.eye);
+            v.add(x + dx * 1.7 - px * 0.9, gy + 5, z + dz * 1.7 - pz * 0.9, P.eye);
+            v.add(x + dx * 2.3, gy + 4.2, z + dz * 2.3, P.orange); // 부리
+            v.add(x + px * 2.2, gy + 2, z + pz * 2.2, P.chick); // 짧은 날개
+            v.add(x - px * 2.2, gy + 2, z - pz * 2.2, P.chick);
+        }
+
+        // 배 깔고 미끄러지는 펭귄 (썰매 포즈)
+        function slider(x, z, ang) {
+            const gy = shelfH(x, z) + 1;
+            const dx = Math.cos(ang), dz = Math.sin(ang);
+            const px = -dz, pz = dx;
+            const B = P.pengBlack, W = P.pengWhite;
+            for (let i = -4; i <= 3; i++) { // 유선형 몸통
+                const r = 2.3 - Math.abs(i + 0.5) * 0.22;
+                v.sphere(x + dx * i, gy + 1.6, z + dz * i, r, B);
+            }
+            v.sphere(x + dx * 4.6, gy + 2.4, z + dz * 4.6, 1.9, B); // 살짝 든 머리
+            v.sphere(x + dx * 5.4 + px * 1.1, gy + 2.6, z + dz * 5.4 + pz * 1.1, 0.8, W); // 볼
+            v.sphere(x + dx * 5.4 - px * 1.1, gy + 2.6, z + dz * 5.4 - pz * 1.1, 0.8, W);
+            v.add(x + dx * 6 + px * 0.9, gy + 3, z + dz * 6 + pz * 0.9, P.eye);
+            v.add(x + dx * 6 - px * 0.9, gy + 3, z + dz * 6 - pz * 0.9, P.eye);
+            v.line(x + dx * 6, gy + 2.4, z + dz * 6, x + dx * 8, gy + 2.2, z + dz * 8, 0.4, P.orange); // 부리
+            v.line(x + px * 2.5, gy + 2, z + pz * 2.5, x + px * 4.5 - dx, gy + 3, z + pz * 4.5 - dz, 0.5, B); // 뒤로 젖힌 날개
+            v.line(x - px * 2.5, gy + 2, z - pz * 2.5, x - px * 4.5 - dx, gy + 3, z - pz * 4.5 - dz, 0.5, B);
+            v.add(x - dx * 5 + px, gy + 2, z - dz * 5 + pz, P.orange); // 발장구
+            v.add(x - dx * 5 - px, gy + 2, z - dz * 5 - pz, P.orange);
+            v.line(x - dx * 4, gy + 0.6, z - dz * 4, x + dx * 2, gy + 0.6, z + dz * 2, 0.5, P.iceWall); // 미끄럼 자국
+        }
+
+        // 물개 (유빙 위에서 낮잠)
+        function seal(x, z, gy) {
+            v.ellipsoid(x, gy + 2, z, 7, 2, 3, P.seal);
+            v.ellipsoid(x, gy + 1, z, 6, 1, 2, P.sealBelly);
+            v.ellipsoid(x + 4, gy + 3, z, 3, 2, 2, P.seal); // 들어올린 가슴
+            v.sphere(x + 7, gy + 4, z, 2.4, P.seal); // 머리
+            v.add(x + 9, gy + 5, z + 1, P.eye); v.add(x + 9, gy + 5, z - 1, P.eye);
+            v.add(x + 9, gy + 4, z, 0x2a2e36); // 코
+            v.add(x + 10, gy + 4, z + 1, P.sealBelly); v.add(x + 10, gy + 4, z - 1, P.sealBelly); // 수염 볼
+            v.line(x - 7, gy + 2, z, x - 10, gy + 3.5, z + 2, 0.5, P.seal); // 꼬리 지느러미
+            v.line(x - 7, gy + 2, z, x - 10, gy + 3.5, z - 2, 0.5, P.seal);
+            v.line(x + 3, gy + 1, z + 3, x + 5.5, gy + 1, z + 4.5, 0.5, P.seal); // 옆 지느러미
+        }
+
+        // 원경: 얼음 능선 + 낮은 태양
+        function skyline() {
+            for (let mx = -66; mx <= 66; mx += 14) {
+                const peak = 16 + rng() * 13;
+                const bz = -54 + rng() * 4;
+                for (let y = 0; y < peak; y++) {
+                    const wdt = Math.max(1, Math.floor((peak - y) * 0.55));
+                    v.box(Math.max(-70, mx - wdt), y, bz - 3, Math.min(70, mx + wdt), y, bz + 3, y > peak * 0.45 ? P.snow : P.mount);
+                }
+            }
+            v.sphere(52, 32, -52, 8, P.sun); // 낮게 걸린 극지의 태양
+            v.sphere(52, 32, -52, 5, P.sunCore);
+        }
+
+        function snowMound(x, z, r) {
+            const gy = shelfH(x, z);
+            v.ellipsoid(x, gy + 2, z, r, 2, r, P.snow);
+        }
+
+        function iceChunk(x, z) {
+            const gy = shelfH(x, z) + 1;
+            v.box(x, gy, z, x + 2, gy + 1 + Math.floor(rng() * 2), z + 2, P.iceWall);
+        }
+
+        terrain();
+        skyline();
+        iceberg(48, 44, 23, 10);   // 주 빙산
+        iceberg(-52, 42, 12, 6);   // 작은 빙산
+        floe(-34, 24, 9);          // 물개의 유빙
+        floe(22, 20, 5);
+        floe(-8, 50, 6);
+        floe(30, 54, 4);
+        floe(60, 20, 5);
+        igloo(-34, -22);
+        penguin(-4, -12, Math.PI / 2, 'stand');
+        penguin(6, -20, 2.2, 'wave');
+        penguin(16, -8, 1.1, 'sky');
+        slider(-14, 2, Math.PI / 2);
+        chick(9, -15, 2.4);
+        chick(20, -4, 1.3);
+        seal(-34, 24, 2);
+        snowMound(-52, -40, 5); snowMound(38, -34, 6); snowMound(52, -12, 4);
+        iceChunk(-20, -34); iceChunk(28, -26); iceChunk(-46, -8); iceChunk(0, -42);
+
+        // 헤엄치며 점프하는 펭귄 (사인 곡선 궤적, 별도 그룹)
+        const vp = new VoxelBuilder();
+        (function buildSwimmer() {
+            const B = P.pengBlack, W = P.pengWhite;
+            vp.ellipsoid(0, 0, 0, 5, 2, 2, B);          // 유선형 몸통 (+x 방향)
+            vp.ellipsoid(1, -1, 0, 4, 1, 1, W);         // 흰 배
+            vp.sphere(5, 1, 0, 2, B);                   // 머리
+            vp.sphere(6, 1.5, 1.5, 0.9, W);             // 볼
+            vp.sphere(6, 1.5, -1.5, 0.9, W);
+            vp.add(5, 2, 2, P.earPatch); vp.add(5, 2, -2, P.earPatch);
+            vp.add(6.5, 2, 1.3, P.eye); vp.add(6.5, 2, -1.3, P.eye);
+            vp.line(7, 1, 0, 9, 0.6, 0, 0.4, P.orange); // 부리
+            vp.line(1, 0, 2, -2, 2, 5, 0.5, B);         // 뒤로 젖힌 날개
+            vp.line(1, 0, -2, -2, 2, -5, 0.5, B);
+            vp.add(-5, 0, 1, P.orange); vp.add(-5, 0, -1, P.orange); // 발
+            vp.line(-5, 0, 0, -7, 1, 0, 0.4, B);        // 꽁지
+        })();
+        const swimmer = new THREE.Group();
+        swimmer.add(buildVoxelMesh(THREE, vp, { size: 0.95, roughness: 0.85, metalness: 0.03 }));
+        scene.add(swimmer);
+        const SWIM = { z: 34, speed: 0.075, span: 116, arcs: 3, amp: 10, base: -4 };
+
+        // 눈보라 (바람에 흩날리는 입자)
+        const snowGroup = new THREE.Group();
+        scene.add(snowGroup);
+        const flakeGeo = new THREE.BoxGeometry(0.65, 0.65, 0.65);
+        const flakeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
+        const flakes = [];
+        for (let i = 0; i < 140; i++) {
+            const f = new THREE.Mesh(flakeGeo, flakeMat);
+            f.userData = {
+                x0: -70 + rng() * 140, z0: -58 + rng() * 116,
+                speed: 4 + rng() * 5, wind: 7 + rng() * 9,
+                sway: 1.5 + rng() * 2.5, phase: rng() * Math.PI * 2, top: 40 + rng() * 26,
+            };
+            snowGroup.add(f);
+            flakes.push(f);
+        }
+
+        scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.88, metalness: 0.03 }));
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        const wrap = (val, lo, hi) => ((val - lo) % (hi - lo) + (hi - lo)) % (hi - lo) + lo;
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+
+            // 사인 곡선을 그리며 바다를 가르는 펭귄
+            const phase = (t * SWIM.speed) % 1;
+            const sx = -SWIM.span / 2 + phase * SWIM.span;
+            const sy = SWIM.base + Math.sin(phase * Math.PI * 2 * SWIM.arcs) * SWIM.amp;
+            const dyd = Math.cos(phase * Math.PI * 2 * SWIM.arcs) * SWIM.amp * Math.PI * 2 * SWIM.arcs;
+            swimmer.position.set(sx, sy, SWIM.z);
+            swimmer.rotation.z = Math.atan2(dyd, SWIM.span) * 1.15;
+            swimmer.rotation.x = Math.sin(t * 2.2) * 0.06;
+
+            // 눈보라: 낙하 + 옆바람
+            for (const f of flakes) {
+                const u = f.userData;
+                const cycle = (t * u.speed / u.top + u.phase) % 1;
+                f.position.set(
+                    wrap(u.x0 + t * u.wind + Math.sin(t * 1.3 + u.phase) * u.sway, -70, 70),
+                    u.top * (1 - cycle),
+                    wrap(u.z0 + t * u.wind * 0.25 + Math.cos(t * 0.9 + u.phase) * u.sway * 0.6, -60, 60));
+            }
+
+            sunGlow.intensity = 1.0 + Math.sin(t * 0.8) * 0.15;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 공룡 계곡</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(#9fd8ec 0%, #bfe8c8 55%, #4a8a5a 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 40%, rgba(8, 30, 16, 0.42) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #14301c; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #7bc850;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(123, 200, 80, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #4fc3e8; box-shadow: 0 0 24px rgba(79, 195, 232, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #9cc8a4; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(10, 30, 16, 0.6);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(200, 255, 210, 0.22);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.42); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #8fe06a; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #ffb35c; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #e2f0e0; line-height: 1.8;
+            background: rgba(0,0,0,0.26); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>쥬라기 계곡의 공룡들을 깨우고 있습니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">공룡 계곡</div>
+        <div class="subtitle">브라키오사우루스 · 폭포 · 트리케라톱스 · 선회하는 익룡</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xa6dcea);
+        scene.fog = new THREE.FogExp2(0xaadcd2, 0.0032);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(56, 42, 88);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 12, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 240;
+        controls.minDistance = 24;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.7;
+
+        // 한낮의 쥬라기 햇살
+        scene.add(new THREE.AmbientLight(0x9db98a, 0.55));
+        scene.add(new THREE.HemisphereLight(0xbde8ff, 0x3a6a3a, 0.75));
+        const sunLight = new THREE.DirectionalLight(0xfff0d0, 1.25);
+        sunLight.position.set(70, 110, 45);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.set(4096, 4096);
+        const d = 120;
+        sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
+        sunLight.shadow.camera.near = 10; sunLight.shadow.camera.far = 400;
+        sunLight.shadow.bias = -0.0005;
+        scene.add(sunLight);
+        const fallLight = new THREE.PointLight(0xaee6ff, 1.3, 55, 2);
+        fallLight.position.set(-23, 12, -30);
+        scene.add(fallLight);
+        const lakeLight = new THREE.PointLight(0xbfeaff, 0.6, 60, 2);
+        lakeLight.position.set(6, 10, 28);
+        scene.add(lakeLight);
+
+        const P = {
+            grass: 0x6fbf4e, grassD: 0x58a63c, grassL: 0x8ed86a,
+            dirt: 0x8a6a42, dirtD: 0x6e5232, sand: 0xd8c890, sandD: 0xc8b880,
+            water: 0x3fa8c8, waterD: 0x2c86ad, waterL: 0x8fdcec, foam: 0xdff4ff,
+            rock: 0x8d8577, rockD: 0x6e6656, rockL: 0xa39a88,
+            fern: 0x3d8a3c, fernD: 0x2c6c2c,
+            palm: 0x8a6238, palmD: 0x6b4a28, frond: 0x3e9c46, frondD: 0x2e7c36,
+            brachio: 0x9cb86a, brachioD: 0x7e9c50, belly: 0xc2d49a,
+            trike: 0xb0824e, trikeD: 0x8f6438, frill: 0xc89a5c, horn: 0xf0e6cc,
+            dark: 0x222222, cloud: 0xffffff, cloudS: 0xf0f6ff, sun: 0xfff2c0,
+        };
+
+        const v = new VoxelBuilder();
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(20260707);
+
+        // ---- 물 지형 정의 (호수 · 폭포 웅덩이 · 개울) ----
+        function inLake(x, z) {
+            const a = Math.atan2(z - 28, x - 6);
+            const wob = Math.sin(a * 3 + 0.7) * 2.2 + Math.cos(a * 5) * 1.2;
+            return Math.hypot(x - 6, (z - 28) * 1.3) < 14.5 + wob;
+        }
+        function inPool(x, z) { return Math.hypot(x + 23, (z + 36) * 1.05) < 7; }
+        function streamX(z) { return -23 + (z + 38) * 0.28 + Math.sin(z * 0.18) * 2.6; }
+        function inStream(x, z) { return z >= -40 && z <= 16 && Math.abs(x - streamX(z)) < 2.6; }
+        function isWater(x, z) { return inLake(x, z) || inPool(x, z) || inStream(x, z); }
+        function nearWater(x, z) {
+            const offs = [[2, 0], [-2, 0], [0, 2], [0, -2], [2, 2], [-2, -2], [2, -2], [-2, 2]];
+            for (const [dx, dz] of offs) if (isWater(x + dx, z + dz)) return true;
+            return false;
+        }
+        function groundH(x, z) {
+            return Math.max(1, Math.floor(1.6 + Math.sin(x * 0.07) * 1.3 + Math.cos(z * 0.09) * 1.3 + Math.sin((x + z) * 0.045)));
+        }
+
+        function valleyFloor() {
+            const flowers = [0xff6b81, 0xffd84d, 0xff9a4d];
+            for (let x = -68; x <= 68; x++) {
+                for (let z = -58; z <= 58; z++) {
+                    if (isWater(x, z)) {
+                        v.add(x, 0, z, ((x * 5 + z * 3) % 7 === 0) ? P.waterD : P.water);
+                        if (rng() > 0.985) v.add(x, 0, z, P.waterL); // 반짝이는 수면
+                        continue;
+                    }
+                    if (nearWater(x, z)) { // 모래·진흙 물가
+                        v.add(x, 0, z, P.dirt);
+                        v.add(x, 1, z, rng() > 0.3 ? P.sand : P.sandD);
+                        continue;
+                    }
+                    const h = groundH(x, z);
+                    for (let y = 0; y < h; y++) v.add(x, y, z, y % 2 ? P.dirtD : P.dirt);
+                    const r = rng();
+                    v.add(x, h, z, r > 0.8 ? P.grassD : (r > 0.72 ? P.grassL : P.grass));
+                    if (rng() > 0.993) v.add(x, h + 1, z, flowers[(x * 3 + z) & 1 ? 0 : (z & 1 ? 1 : 2)]);
+                }
+            }
+        }
+
+        // ---- 폭포 절벽 (계곡 뒤편) ----
+        function cliffs() {
+            for (let x = -68; x <= 22; x++) {
+                const taper = Math.min(1, (22 - x) / 14);
+                for (let z = -58; z <= -40; z++) {
+                    const notch = x >= -27 && x <= -19;
+                    if (notch && z >= -41) continue; // 폭포가 떨어지는 빈 공간
+                    let top = (32 + Math.sin(x * 0.14) * 4 + Math.cos(x * 0.31 + z * 0.5) * 2) * taper;
+                    if (!notch) { // 앞줄은 계단식으로 낮아지는 바위 단
+                        if (z === -40) top = Math.min(top, 5 + Math.sin(x * 0.3) * 2);
+                        else if (z === -41) top = Math.min(top, 14 + Math.sin(x * 0.4) * 3);
+                        else if (z === -42) top = Math.min(top, 22 + Math.cos(x * 0.24) * 3);
+                    }
+                    if (notch) top = Math.min(top, 26); // 폭포 물길 홈
+                    top = Math.max(2, Math.floor(top));
+                    const solid = (z >= -46 || x >= 16) ? 0 : Math.max(0, top - 4);
+                    for (let y = solid; y <= top; y++) {
+                        const c = (y % 6 === 0) ? P.rockD : (((x + y * 3 + z) % 9 === 0) ? P.rockL : P.rock);
+                        v.add(x, y, z, c);
+                    }
+                    if (top >= 20 && z <= -44 && rng() > 0.35) // 절벽 위 밀림
+                        v.add(x, top + 1, z, rng() > 0.5 ? P.fern : P.fernD);
+                }
+            }
+            // 절벽 위 물길 (폭포로 흘러드는 강)
+            for (let z = -58; z <= -42; z++)
+                for (let x = -26; x <= -20; x++)
+                    v.add(x, 26, z, (x + z) % 2 ? P.water : P.waterD);
+            for (let x = -26; x <= -20; x++) { v.add(x, 26, -41, P.foam); v.add(x, 25, -41, P.foam); }
+            v.box(-28, 1, -42, -18, 25, -42, P.rockD); // 폭포 뒤 젖은 암벽
+            // 웅덩이 가장자리 물보라 거품
+            v.ringY(-23, 0, -36, 5, 0.8, P.foam);
+            // 절벽 위 우거진 나무 두 그루
+            v.box(-58, 30, -50, -57, 34, -49, P.palmD);
+            v.sphere(-58, 37, -50, 4.5, P.frondD);
+            v.box(-40, 31, -52, -39, 35, -51, P.palmD);
+            v.sphere(-40, 38, -52, 4, P.fernD);
+        }
+
+        // ---- 원경 능선 (절벽이 낮아지는 오른쪽) ----
+        function farRidge() {
+            for (let mx = 26; mx <= 68; mx += 9) {
+                const peak = 18 + ((mx * 37) % 17);
+                for (let y = 0; y < peak; y++) {
+                    const wdt = Math.max(1, Math.floor((peak - y) * 0.55));
+                    v.box(Math.max(-68, mx - wdt), y, -56, Math.min(68, mx + wdt), y, -48,
+                        y > peak * 0.6 ? P.rockL : (y > peak * 0.3 ? P.rock : P.fernD));
+                }
+            }
+        }
+
+        // ---- 브라키오사우루스 (호수에서 물 마시는 포즈) ----
+        function brachiosaurus() {
+            const bx = 36, bz = 14;
+            for (const [lx, lz] of [[bx - 5, bz - 3], [bx - 5, bz + 3], [bx + 5, bz - 3], [bx + 5, bz + 3]]) {
+                v.cylinderY(lx, 1, 10, lz, 2.2, P.brachioD);
+                v.cylinderY(lx, 1, 2, lz, 2.6, P.brachio);
+            }
+            v.ellipsoid(bx, 14, bz, 9, 5.5, 5, P.brachio);
+            v.ellipsoid(bx, 12, bz, 8, 4, 4.2, P.belly); // 밝은 배
+            for (let i = 0; i <= 6; i++) // 등 위 얼룩무늬
+                v.sphere(bx - 7 + i * 2.4, 18 - (i % 2), bz - 2 + (i % 3) * 2, 1.2, P.brachioD);
+            // 목: 어깨에서 수면으로 부드럽게 내려가는 곡선
+            const p0 = { x: bx - 8, y: 17, z: bz + 2 }, p1 = { x: 15, y: 14, z: 23 }, p2 = { x: 7, y: 4, z: 28 };
+            for (let i = 0; i <= 22; i++) {
+                const u = i / 22, w = 1 - u;
+                const nx = w * w * p0.x + 2 * w * u * p1.x + u * u * p2.x;
+                const ny = w * w * p0.y + 2 * w * u * p1.y + u * u * p2.y;
+                const nz = w * w * p0.z + 2 * w * u * p1.z + u * u * p2.z;
+                v.sphere(Math.round(nx), Math.round(ny), Math.round(nz), 2.6 - u * 1.2, i % 5 === 0 ? P.brachioD : P.brachio);
+            }
+            v.ellipsoid(6, 4, 29, 2.4, 2, 2, P.brachio);     // 머리
+            v.ellipsoid(4, 2, 31, 1.7, 1.5, 1.5, P.brachio); // 물에 닿은 주둥이
+            v.add(7, 6, 31, P.dark); v.add(8, 6, 27, P.dark); // 눈
+            v.ringY(4, 0, 31, 3, 0.6, P.foam);  // 물결 파문
+            v.ringY(4, 0, 31, 5, 0.5, P.waterL);
+            // 꼬리
+            v.line(bx + 8, 15, bz - 1, bx + 15, 18, bz - 4, 2, P.brachio);
+            v.line(bx + 15, 18, bz - 4, bx + 20, 21, bz - 7, 1.2, P.brachio);
+            v.line(bx + 20, 21, bz - 7, bx + 23, 23, bz - 9, 0.5, P.brachioD);
+        }
+
+        // ---- 트리케라톱스 ----
+        function triceratops() {
+            const tx = -42, tz = 16;
+            for (const [lx, lz] of [[tx - 5, tz - 3], [tx - 5, tz + 3], [tx + 3, tz - 3], [tx + 3, tz + 3]])
+                v.cylinderY(lx, 1, 6, lz, 1.6, P.trikeD);
+            v.ellipsoid(tx - 1, 8, tz, 7, 4.6, 4, P.trike);
+            v.line(tx - 7, 12, tz, tx + 3, 12, tz, 0.5, P.trikeD); // 등마루
+            v.ellipsoid(tx + 8, 8, tz, 3, 2.6, 2.6, P.trike);      // 머리
+            v.ellipsoid(tx + 11, 7, tz, 1.6, 1.4, 1.4, P.trikeD);  // 부리
+            for (let dy = -5; dy <= 5; dy++) // 프릴 (목 방패)
+                for (let dz = -5; dz <= 5; dz++) {
+                    const dd = Math.hypot(dy, dz);
+                    if (dd <= 5.2 && (dy > -2 || Math.abs(dz) < 4)) {
+                        v.add(tx + 5, 10 + dy, tz + dz, dd > 4.2 ? P.trikeD : P.frill);
+                        if (dd <= 4.4) v.add(tx + 6, 10 + dy, tz + dz, P.frill);
+                    }
+                }
+            v.line(tx + 9, 11, tz - 2, tx + 16, 14, tz - 3, 0.7, P.horn);
+            v.line(tx + 9, 11, tz + 2, tx + 16, 14, tz + 3, 0.7, P.horn);
+            v.line(tx + 11, 9, tz, tx + 13, 12, tz, 0.5, P.horn);
+            v.add(tx + 10, 9, tz - 2, P.dark); v.add(tx + 10, 9, tz + 2, P.dark);
+            v.line(tx - 8, 8, tz, tx - 13, 4, tz + 3, 1.2, P.trike);
+            v.line(tx - 13, 4, tz + 3, tx - 15, 2, tz + 4, 0.5, P.trikeD);
+        }
+
+        // ---- 식생: 고사리 / 야자수 ----
+        function fern(x, z) {
+            v.box(x, 1, z, x, 2, z, P.palmD);
+            for (let k = 0; k < 7; k++) {
+                const a = k * Math.PI * 2 / 7 + ((x * 13 + z * 7) % 3) * 0.3;
+                const dx = Math.cos(a), dz = Math.sin(a);
+                v.line(x, 2, z, x + dx * 3, 5, z + dz * 3, 0.5, P.fern);
+                v.line(x + dx * 3, 5, z + dz * 3, x + dx * 5.5, 3, z + dz * 5.5, 0.5, k % 2 ? P.fernD : P.fern);
+            }
+            v.add(x, 5, z, P.fernD);
+        }
+
+        function palm(x, z, h, leanX, leanZ) {
+            let px = x, pz = z;
+            for (let y = 1; y <= h; y++) {
+                const f = (y / h) * (y / h) * 4;
+                px = x + leanX * f; pz = z + leanZ * f;
+                v.box(Math.round(px), y, Math.round(pz), Math.round(px) + 1, y, Math.round(pz) + 1, y % 3 === 0 ? P.palmD : P.palm);
+            }
+            const tx = Math.round(px), tz = Math.round(pz);
+            for (let k = 0; k < 6; k++) {
+                const a = k * Math.PI / 3 + 0.4;
+                const dx = Math.cos(a), dz = Math.sin(a);
+                v.line(tx, h + 1, tz, tx + dx * 5, h + 3, tz + dz * 5, 0.6, P.frond);
+                v.line(tx + dx * 5, h + 3, tz + dz * 5, tx + dx * 9, h + 1, tz + dz * 9, 0.6, k % 2 ? P.frondD : P.frond);
+                v.line(tx + dx * 9, h + 1, tz + dz * 9, tx + dx * 11, h - 1, tz + dz * 11, 0.5, P.frondD);
+            }
+            v.sphere(tx, h + 1, tz + 1, 1, P.palmD); // 코코넛
+            v.sphere(tx + 1, h, tz - 1, 0.9, P.palmD);
+        }
+
+        function boulder(x, z, r) {
+            const cy = Math.ceil(r);
+            v.sphere(x, cy, z, r, P.rock);
+            v.sphere(x + 1, cy + 1, z - 1, r * 0.5, P.rockL);
+        }
+
+        // ---- 하늘: 구름과 태양 ----
+        function cloud(x, y, z, s) {
+            v.ellipsoid(x, y, z, 6 * s, 2 * s, 3 * s, P.cloud);
+            v.ellipsoid(x + 4 * s, y + s, z + s, 4 * s, 2 * s, 2.4 * s, P.cloud);
+            v.ellipsoid(x - 5 * s, y, z - s, 3.5 * s, 1.6 * s, 2 * s, P.cloudS);
+        }
+        function skyDeco() {
+            v.sphere(58, 90, -48, 6, P.sun);
+            cloud(-40, 66, -20, 1.2);
+            cloud(20, 72, -34, 1.5);
+            cloud(52, 62, 8, 1.0);
+            cloud(-14, 76, 18, 0.9);
+            cloud(36, 68, 40, 0.8);
+        }
+
+        valleyFloor();
+        cliffs();
+        farRidge();
+        brachiosaurus();
+        triceratops();
+        fern(34, 40); fern(-2, 46); fern(-20, 38); fern(44, 18); fern(-34, 32);
+        fern(18, -20); fern(-48, -12); fern(54, 4); fern(30, -30); fern(-58, 22);
+        palm(48, 36, 14, 1.2, -0.6); palm(-54, 2, 12, 0.8, 1.0);
+        palm(56, -10, 13, -1.0, 0.5); palm(-58, 40, 11, 0.5, -1.1);
+        boulder(2, -30, 3); boulder(-38, -24, 2.5); boulder(40, -36, 3.5); boulder(-12, 44, 2);
+        skyDeco();
+
+        scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.88, metalness: 0.03 }));
+
+        // ==== 애니메이션 1: 하늘을 선회하는 익룡 2마리 ====
+        function makePtero(scale, bodyC, wingC) {
+            const g = new THREE.Group();
+            const bb = new VoxelBuilder();
+            bb.ellipsoid(0, 0, 0, 4, 2, 2, bodyC);
+            bb.ellipsoid(4, 1, 0, 2, 1.5, 1.5, bodyC);
+            bb.line(5, 1, 0, 9, 0, 0, 0.5, 0xe8c07a);   // 부리
+            bb.line(4, 2, 0, 1, 4, 0, 0.5, wingC);      // 볏
+            bb.line(-4, 0, 0, -8, 2, 0, 0.5, bodyC);    // 꼬리
+            bb.add(5, 2, 1, 0x222222); bb.add(5, 2, -1, 0x222222);
+            g.add(buildVoxelMesh(THREE, bb, { size: 0.95, roughness: 0.8, metalness: 0.05 }));
+            const wings = [];
+            for (const s of [1, -1]) {
+                const wb = new VoxelBuilder();
+                for (let dz = 1; dz <= 10; dz++) {
+                    const x1 = Math.round(-3 + dz * 0.45);
+                    const x2 = Math.round(3 - dz * 0.05);
+                    for (let x = x1; x <= x2; x++)
+                        wb.add(x, 0, s * dz, x === x2 ? bodyC : ((x + dz) % 4 === 0 ? bodyC : wingC));
+                }
+                const wm = buildVoxelMesh(THREE, wb, { size: 0.95, roughness: 0.8, metalness: 0.05 });
+                g.add(wm);
+                wings.push(wm);
+            }
+            g.scale.setScalar(scale);
+            g.userData.wings = wings;
+            return g;
+        }
+        const pteros = [];
+        const p1 = makePtero(1.0, 0xd88a50, 0xb56438);
+        p1.userData.orbit = { cx: 4, cz: -6, r: 38, h: 54, speed: 0.28, phase: 0.5, flap: 3.4 };
+        const p2 = makePtero(0.72, 0xc2703e, 0x96522c);
+        p2.userData.orbit = { cx: -8, cz: 2, r: 29, h: 66, speed: -0.2, phase: 2.6, flap: 4.4 };
+        for (const p of [p1, p2]) { scene.add(p); pteros.push(p); }
+
+        // ==== 애니메이션 2: 폭포 낙수 입자 ====
+        const fallGroup = new THREE.Group();
+        scene.add(fallGroup);
+        const dropGeo = new THREE.BoxGeometry(1.3, 3.4, 1.1);
+        const dropMat = new THREE.MeshBasicMaterial({ color: 0xd8f2ff, transparent: true, opacity: 0.8 });
+        const drops = [];
+        for (let i = 0; i < 46; i++) {
+            const m = new THREE.Mesh(dropGeo, dropMat);
+            m.userData = { x: -26 + rng() * 7, speed: 0.55 + rng() * 0.25, phase: rng() };
+            fallGroup.add(m);
+            drops.push(m);
+        }
+        // 웅덩이 물보라 조각
+        const splashGeo = new THREE.BoxGeometry(1, 1, 1);
+        const splashMat = new THREE.MeshBasicMaterial({ color: 0xeaf8ff, transparent: true, opacity: 0.85 });
+        const splashes = [];
+        for (let i = 0; i < 16; i++) {
+            const m = new THREE.Mesh(splashGeo, splashMat);
+            m.userData = { a: i * Math.PI * 2 / 16 + rng() * 0.4, speed: 0.8 + rng() * 0.5, phase: rng() };
+            fallGroup.add(m);
+            splashes.push(m);
+        }
+
+        // ==== 애니메이션 3: 피어오르는 물안개 ====
+        const mistGroup = new THREE.Group();
+        scene.add(mistGroup);
+        const mistGeo = new THREE.SphereGeometry(2.2, 10, 8);
+        const mists = [];
+        for (let i = 0; i < 10; i++) {
+            const mat = new THREE.MeshBasicMaterial({ color: 0xf0faff, transparent: true, opacity: 0, depthWrite: false });
+            const m = new THREE.Mesh(mistGeo, mat);
+            m.userData = { x: -27 + rng() * 9, z: -39 + rng() * 7, speed: 0.28 + rng() * 0.18, phase: rng(), drift: 1 + rng() * 2 };
+            mistGroup.add(m);
+            mists.push(m);
+        }
+
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+            // 익룡 선회 + 날갯짓
+            for (const p of pteros) {
+                const u = p.userData.orbit;
+                const a = t * u.speed + u.phase;
+                p.position.set(u.cx + Math.cos(a) * u.r, u.h + Math.sin(t * 0.6 + u.phase) * 3, u.cz + Math.sin(a) * u.r);
+                p.rotation.y = u.speed > 0 ? -a - Math.PI / 2 : Math.PI / 2 - a;
+                p.rotation.z = u.speed > 0 ? 0.14 : -0.14;
+                const f = Math.sin(t * u.flap) * 0.55;
+                p.userData.wings[0].rotation.x = f;
+                p.userData.wings[1].rotation.x = -f;
+            }
+            // 폭포 낙수
+            for (const m of drops) {
+                const u = m.userData;
+                const cyc = (t * u.speed + u.phase) % 1;
+                m.position.set(u.x + Math.sin(t * 3 + u.phase * 7) * 0.3, 26.5 - cyc * 25.5, -41.2 + cyc * cyc * 3.4);
+                m.scale.y = 1 + cyc * 0.8;
+            }
+            // 물보라
+            for (const m of splashes) {
+                const u = m.userData;
+                const cyc = (t * u.speed + u.phase) % 1;
+                const r = 1.5 + cyc * 5;
+                m.position.set(-23 + Math.cos(u.a) * r, 1.5 + Math.sin(cyc * Math.PI) * 3.5, -36 + Math.sin(u.a) * r * 0.8);
+                m.scale.setScalar(1.2 * (1 - cyc) + 0.3);
+            }
+            // 물안개
+            for (const m of mists) {
+                const u = m.userData;
+                const cyc = (t * u.speed + u.phase) % 1;
+                m.position.set(u.x + Math.sin(t * 0.5 + u.phase * 9) * u.drift, 2 + cyc * 9, u.z + cyc * u.drift);
+                m.scale.setScalar(1 + cyc * 1.6);
+                m.material.opacity = 0.22 * Math.sin(cyc * Math.PI);
+            }
+            fallLight.intensity = 1.2 + Math.sin(t * 7) * 0.2;
+            controls.target.y = 12 + Math.sin(t * 0.8) * 0.8;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 골목 야시장</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(180deg, #1a1024 0%, #3d1a2a 55%, #6e2a24 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 40%, rgba(10, 4, 14, 0.55) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #1a1024; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #ff4757;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(255, 71, 87, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #ffb35c; box-shadow: 0 0 24px rgba(255, 179, 92, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #cc8fa2; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(26, 12, 22, 0.62);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(255, 200, 180, 0.2);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.42); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #ff6b6b; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #ffb35c; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #f5dbe0; line-height: 1.8;
+            background: rgba(0,0,0,0.26); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>골목에 홍등을 내걸고 어묵 국물을 끓이는 중입니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">골목 야시장</div>
+        <div class="subtitle">홍등 줄 · 포장마차 세 곳 · 어묵 김 · 네온 간판</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1c1122);
+        scene.fog = new THREE.FogExp2(0x261527, 0.0038);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(-58, 40, 86);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.45;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 13, -2);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 240;
+        controls.minDistance = 22;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.7;
+
+        // 달빛 + 포장마차의 온기 + 네온
+        scene.add(new THREE.AmbientLight(0x8a6272, 1.05));
+        scene.add(new THREE.HemisphereLight(0x8a6288, 0x2c2028, 0.9));
+        const moonLight = new THREE.DirectionalLight(0x9fb0e8, 1.05);
+        moonLight.position.set(60, 95, 55);
+        moonLight.castShadow = true;
+        moonLight.shadow.mapSize.set(4096, 4096);
+        const d = 110;
+        moonLight.shadow.camera.left = -d; moonLight.shadow.camera.right = d;
+        moonLight.shadow.camera.top = d; moonLight.shadow.camera.bottom = -d;
+        moonLight.shadow.camera.near = 10; moonLight.shadow.camera.far = 400;
+        moonLight.shadow.bias = -0.0005;
+        scene.add(moonLight);
+        const warmLight = new THREE.PointLight(0xff9a4a, 3.6, 120, 1.6);
+        warmLight.position.set(0, 15, -4);
+        scene.add(warmLight);
+        const neonLight = new THREE.PointLight(0xff5064, 2.4, 60, 2);
+        neonLight.position.set(-2, 28, -18);
+        scene.add(neonLight);
+
+        const P = {
+            asphalt: 0x2e2836, line: 0x272230, lightSpot: 0x3a3344,
+            road: 0x232029, roadLine: 0x8a8072, curb: 0x565060,
+            puddle: 0x44507c, puddleHi: 0x5a6a9c,
+            brick: 0x6e4438, brickD: 0x573630, mortar: 0x7d5c4c, wallCap: 0x847c8e,
+            post: 0x7a5230, counter: 0xb08850, woodD: 0x5c4020,
+            steel: 0x9aa4b0, iron: 0x3c3c46, broth: 0xd8a05a, stick: 0xe8d8b0,
+            fishcake: 0xe0b070, bread: 0xd89040, jeon: 0xe8c060, jeonD: 0xc89840,
+            tableTop: 0xc8323e, stoolR: 0xd84048, stoolB: 0x3f6fd8,
+            soju: 0x3a9048, plate: 0xe8e8f0, skin: 0xe8b088,
+            pole: 0x554e46, poleArm: 0x453f38, wire: 0x16131c,
+            bldg: 0x241c30, bldgB: 0x2b2138,
+            moon: 0xf2ead2, star: 0xfff2d8,
+        };
+
+        const v = new VoxelBuilder();
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(20260707);
+
+        // ── 바닥: 골목 보도 + 큰길 ──
+        function ground() {
+            for (let x = -68; x <= 68; x++) {
+                for (let z = -58; z <= 58; z++) {
+                    let c;
+                    if (z >= 35) {
+                        c = P.road; // 골목 밖 차도
+                        if ((z === 46 || z === 47) && ((x + 200) % 10) < 5) c = P.roadLine;
+                        else if (rng() > 0.96) c = 0x2a2630;
+                    } else {
+                        c = (x % 7 === 0 || z % 7 === 0) ? P.line : P.asphalt; // 보도블록 줄눈
+                        if (rng() > 0.93) c = P.lightSpot;
+                    }
+                    v.add(x, 0, z, c);
+                }
+            }
+            v.box(-68, 1, 33, 68, 1, 34, P.curb); // 연석
+            // 빗물 웅덩이 (홍등 불빛이 비치는 느낌의 푸른 물)
+            for (const [px, pz, pr] of [[-18, 24, 4], [30, 18, 3], [-48, 4, 3.5]]) {
+                for (let x = -5; x <= 5; x++) for (let z = -5; z <= 5; z++)
+                    if ((x * x) / (pr * pr * 1.8) + (z * z) / (pr * pr) <= 1)
+                        v.add(px + x, 0, pz + z, (x + z) % 3 ? P.puddle : P.puddleHi);
+            }
+            // 맨홀 뚜껑
+            v.ringY(-10, 0, 26, 2.2, 0.8, 0x5a5262);
+            v.cylinderY(-10, 0, 0, 26, 1.4, 0x4c4454);
+        }
+
+        // ── 골목 담벼락 (벽돌 + 포스터 + 배수관) ──
+        function wall() {
+            for (let x = -66; x <= 66; x++) {
+                for (let y = 1; y <= 10; y++) {
+                    const mortar = ((y % 2 === 0 ? x + 2 : x) % 5 === 0);
+                    v.add(x, y, -26, mortar ? P.mortar : (y % 2 ? P.brick : P.brickD));
+                    v.add(x, y, -27, P.brickD);
+                }
+            }
+            v.box(-67, 11, -28, 67, 11, -25, P.wallCap);
+            // 포스터 / 낙서
+            v.box(-24, 3, -25, -20, 8, -25, 0x3c5a9c);
+            v.box(-18, 4, -25, -15, 7, -25, 0xc8b43c);
+            v.box(12, 3, -25, 16, 8, -25, 0xb0433c);
+            v.box(19, 5, -25, 22, 7, -25, 0x3a8a5c);
+            // 배수관
+            v.box(-28, 1, -25, -28, 10, -25, 0x4a5560);
+            v.box(24, 1, -25, 24, 10, -25, 0x4a5560);
+        }
+
+        // ── 포장마차 세 곳 (차양 색이 다른) ──
+        const stalls = [
+            { cx: -38, type: 'eomuk', a: 0xe23c46, b: 0xf2ead8, tarp: 0xb03830, signBg: 0x25304e, signFg: 0xffe9b8, shirt: 0x8090a8, apron: 0xd8d8e0, hat: 0xf2f2f2 },
+            { cx: -2, type: 'bung', a: 0xffb43c, b: 0xf2ead8, tarp: 0xc07828, signBg: 0x8c2f28, signFg: 0xffd84d, shirt: 0x6a5a8c, apron: 0x3c3c46, hat: 0xd84048 },
+            { cx: 34, type: 'jeon', a: 0x2f9e63, b: 0xf2ead8, tarp: 0x257a4c, signBg: 0x203a2c, signFg: 0xd8ffb0, shirt: 0x9c5a4a, apron: 0xf2f2f2, hat: 0x2a2a34 },
+        ];
+
+        function vendor(x, z, shirt, apron, hat) {
+            v.box(x - 1, 1, z, x - 1, 4, z, 0x2c2c36);
+            v.box(x + 1, 1, z, x + 1, 4, z, 0x2c2c36);
+            v.box(x - 1, 5, z - 1, x + 1, 9, z + 1, shirt);
+            v.box(x - 1, 5, z + 1, x + 1, 8, z + 1, apron); // 앞치마 (손님 쪽)
+            v.box(x - 2, 6, z, x - 2, 8, z, shirt);
+            v.box(x + 2, 6, z, x + 2, 8, z, shirt);
+            v.sphere(x, 11, z, 1.6, P.skin);
+            v.cylinderY(x, 12, 12, z, 1.8, hat);
+            v.cylinderY(x, 13, 13, z, 1.2, hat);
+        }
+
+        function stall(s) {
+            const cx = s.cx;
+            // 기둥 4개
+            for (const [px, pz] of [[cx - 8, -23], [cx + 8, -23], [cx - 8, -10], [cx + 8, -10]])
+                v.box(px, 1, pz, px, 14, pz, P.post);
+            // 카운터 (방수포 앞면 + 나무 상판)
+            v.box(cx - 8, 1, -11, cx + 8, 5, -8, s.tarp);
+            v.box(cx - 8, 6, -12, cx + 8, 6, -7, P.counter);
+            // 뒤 선반 + 병/그릇
+            v.box(cx - 7, 8, -24, cx + 7, 8, -23, P.woodD);
+            for (let i = 0; i < 6; i++) {
+                const bx = Math.round(cx - 6 + i * 2.4);
+                v.box(bx, 9, -24, bx, 9 + (i % 2), -24, [0x3a9048, 0xd8d8e0, 0xc8843c][i % 3]);
+            }
+            // 경사 줄무늬 차양
+            for (let z = -26; z <= -6; z++) {
+                const y = Math.round(16 - 3 * (z + 26) / 20);
+                for (let x = cx - 9; x <= cx + 9; x++)
+                    v.add(x, y, z, Math.floor((x - cx + 9) / 3) % 2 ? s.b : s.a);
+            }
+            // 차양 앞자락 (지그재그 발)
+            for (let x = cx - 9; x <= cx + 9; x++) {
+                const band = Math.floor((x - cx + 9) / 3) % 2;
+                v.box(x, 11, -6, x, 12, -6, band ? s.b : s.a);
+                if (!band) v.add(x, 10, -6, s.a);
+            }
+            // 지붕 위 간판
+            v.box(cx - 5, 13, -8, cx - 5, 16, -8, P.post);
+            v.box(cx + 5, 13, -8, cx + 5, 16, -8, P.post);
+            v.box(cx - 6, 17, -8, cx + 6, 20, -7, s.signBg);
+            for (let i = 0; i < 3; i++)
+                v.box(cx - 4 + i * 3, 18, -6, cx - 3 + i * 3, 19, -6, s.signFg);
+            // 종목별 조리대
+            if (s.type === 'eomuk') {
+                v.box(cx - 6, 7, -12, cx + 2, 9, -9, P.steel);           // 어묵 솥
+                v.box(cx - 5, 9, -11, cx + 1, 9, -10, P.broth);
+                v.box(cx - 2, 9, -11, cx - 2, 9, -10, P.steel);          // 칸막이
+                for (const [sx, sz] of [[cx - 5, -11], [cx - 4, -10], [cx - 1, -11], [cx, -10], [cx + 1, -11]]) {
+                    v.line(sx, 9, sz, sx, 13, sz, 0.4, P.stick);         // 꼬치
+                    v.add(sx, 12, sz, P.fishcake);
+                    v.add(sx, 11, sz, P.fishcake);
+                }
+                v.box(cx + 4, 7, -10, cx + 6, 7, -9, P.plate);           // 종이컵 무더기
+                v.add(cx + 5, 8, -10, P.plate);
+                vendor(cx - 2, -15, s.shirt, s.apron, s.hat);
+            } else if (s.type === 'bung') {
+                v.box(cx - 6, 7, -12, cx + 1, 8, -9, P.iron);            // 붕어빵 틀
+                for (const [fx, fz] of [[cx - 5, -11], [cx - 2, -10], [cx - 5, -9], [cx - 1, -12]]) {
+                    v.box(fx, 9, fz, fx + 2, 9, fz, P.bread);            // 노릇한 붕어
+                    v.add(fx - 1, 9, fz, 0xb87028);                      // 꼬리
+                }
+                v.box(cx + 3, 7, -12, cx + 6, 7, -10, P.woodD);          // 진열대
+                v.box(cx + 3, 8, -12, cx + 5, 8, -11, P.bread);
+                v.box(cx + 4, 9, -12, cx + 5, 9, -12, P.bread);
+                vendor(cx - 1, -15, s.shirt, s.apron, s.hat);
+            } else {
+                v.cylinderY(cx - 2, 7, 8, -10, 2.5, P.iron);             // 원형 전 철판
+                v.cylinderY(cx - 3, 9, 9, -11, 1.2, P.jeon);             // 노릇한 전
+                v.cylinderY(cx - 1, 9, 9, -9, 1.2, P.jeon);
+                v.cylinderY(cx - 2, 9, 9, -10, 1, P.jeonD);
+                v.box(cx + 4, 7, -11, cx + 4, 9, -11, 0x3a9048);         // 기름병
+                v.cylinderY(cx + 6, 7, 8, -10, 1.6, P.plate);            // 접시 더미
+                vendor(cx, -15, s.shirt, s.apron, s.hat);
+            }
+        }
+
+        // ── 플라스틱 테이블 + 의자 ──
+        function tableSet(tx, tz) {
+            v.box(tx, 1, tz, tx, 4, tz, 0x8890a4);
+            v.cylinderY(tx, 5, 5, tz, 3.2, P.tableTop);
+            v.box(tx - 1, 6, tz, tx - 1, 7, tz, P.soju);                 // 소주병
+            v.add(tx - 1, 8, tz, 0x2a6a34);
+            v.add(tx + 1, 6, tz + 1, P.plate);                           // 잔
+            v.add(tx - 2, 6, tz - 1, P.plate);
+            v.cylinderY(tx + 1, 6, 6, tz - 1, 1.2, P.plate);             // 접시
+            v.add(tx + 1, 7, tz - 1, P.fishcake);
+            const seats = [[3.5, 0], [-3.5, 0], [0, 3.5], [0, -3.5]];
+            seats.forEach(([dx, dz], i) =>
+                v.cylinderY(Math.round(tx + dx), 1, 3, Math.round(tz + dz), 1.4, i % 2 ? P.stoolB : P.stoolR));
+        }
+
+        // ── 손님들 ──
+        function customers() {
+            // 어묵 앞에 서 있는 손님
+            v.box(-35, 1, -5, -35, 4, -5, 0x2c2c36);
+            v.box(-33, 1, -5, -33, 4, -5, 0x2c2c36);
+            v.box(-35, 5, -6, -33, 10, -4, 0x7a3c4c);
+            v.line(-34, 8, -6, -34, 9, -8, 0.5, 0x7a3c4c);               // 컵 든 팔
+            v.add(-34, 9, -8, P.plate);
+            v.sphere(-34, 12, -5, 1.6, P.skin);
+            v.box(-35, 13, -6, -33, 13, -4, 0x2a2226);
+            // 테이블에 앉은 손님
+            v.box(3, 4, 13, 5, 8, 15, 0x46628c);
+            v.line(4, 7, 12, 4, 6, 11, 0.5, 0x46628c);
+            v.sphere(4, 10, 14, 1.5, P.skin);
+            v.box(3, 11, 13, 5, 11, 15, 0x2a2226);
+        }
+
+        // ── 전신주 + 처진 전깃줄 ──
+        function sagWire(x1, y1, z1, x2, y2, z2, sag, color) {
+            const steps = Math.ceil(Math.hypot(x2 - x1, y2 - y1, z2 - z1) * 1.2);
+            for (let i = 0; i <= steps; i++) {
+                const u = i / steps;
+                v.add(x1 + (x2 - x1) * u, y1 + (y2 - y1) * u - sag * 4 * u * (1 - u), z1 + (z2 - z1) * u, color);
+            }
+        }
+
+        function utilityPole() {
+            v.cylinderY(52, 0, 40, -2, 1.3, P.pole);
+            v.box(46, 35, -3, 58, 36, -2, P.poleArm);
+            v.box(47, 31, -3, 57, 32, -2, P.poleArm);
+            for (const ix of [47, 52, 57]) v.add(ix, 37, -2, 0xd8d8e0);  // 애자
+            v.cylinderY(55, 26, 32, -2, 2.2, 0x3c3830);                  // 변압기
+            sagWire(52, 36, -2, 68, 33, -4, 4, P.wire);
+            sagWire(52, 32, -2, 68, 29, -3, 3, P.wire);
+            sagWire(46, 35, -2, -56, 33, 8, 6, P.wire);
+            // 건너편 작은 가로등 기둥
+            v.cylinderY(-56, 0, 32, 8, 1, P.pole);
+            v.box(-58, 30, 8, -54, 31, 8, P.poleArm);
+        }
+
+        // ── 잡동사니: 궤짝 / 쓰레기통 / 고양이 ──
+        function props() {
+            for (const [x, z] of [[-56, -20], [46, -22]]) {
+                v.box(x, 1, z, x + 3, 3, z + 3, 0x8a6636);
+                v.box(x + 1, 4, z + 1, x + 4, 6, z + 4, 0x74562c);
+                v.box(x - 4, 1, z + 1, x - 1, 3, z + 3, 0x2f9e63);       // 플라스틱 상자
+            }
+            v.cylinderY(46, 1, 5, 8, 2, 0x3e4450);                       // 쓰레기통
+            v.ringY(46, 5, 8, 1.8, 0.6, 0x2e343c);
+            // 골목 고양이
+            v.sphere(16, 2, 20, 1.8, 0x1e1c24);
+            v.sphere(18, 4, 20, 1.2, 0x1e1c24);
+            v.add(17, 5, 20, 0x1e1c24); v.add(19, 5, 20, 0x1e1c24);
+            v.add(19, 4, 20, 0xffd84d);                                  // 눈
+            v.line(14, 2, 20, 12, 5, 21, 0.4, 0x1e1c24);                 // 꼬리
+        }
+
+        // ── 원경: 도시 실루엣 + 달 + 별 ──
+        function cityBackdrop() {
+            let x = -66;
+            while (x < 60) {
+                const w = 8 + Math.floor(rng() * 6);
+                const h = 18 + Math.floor(rng() * 26);
+                const zf = -46 + Math.floor(rng() * 8);
+                const c = rng() > 0.5 ? P.bldg : P.bldgB;
+                v.box(x, 0, zf - 3, Math.min(x + w, 66), h, zf, c);
+                for (let wy = 4; wy < h - 2; wy += 3)
+                    for (let wx = x + 2; wx < Math.min(x + w, 66) - 1; wx += 3)
+                        if (rng() > 0.55) v.add(wx, wy, zf, [0xffb35c, 0xffd88f, 0x8ad0e8][Math.floor(rng() * 3)]);
+                if (rng() > 0.6) v.cylinderY(x + 3, h, h + 4, zf - 2, 2, 0x37303f); // 옥상 물탱크
+                x += w + 2 + Math.floor(rng() * 4);
+            }
+            v.sphere(44, 88, -54, 6, P.moon);
+            for (let i = 0; i < 60; i++)
+                v.add(-68 + rng() * 136, 55 + rng() * 50, -58 + rng() * 22, P.star);
+        }
+
+        ground();
+        wall();
+        for (const s of stalls) stall(s);
+        tableSet(-22, 6);
+        tableSet(4, 10);
+        tableSet(26, 2);
+        customers();
+        utilityPole();
+        props();
+        cityBackdrop();
+
+        // ── 흔들리는 홍등 줄 (THREE.Group 진자 운동) ──
+        const lanternRoot = new THREE.Group();
+        scene.add(lanternRoot);
+        const lanterns = [];
+        const lanternBodyGeo = new THREE.BoxGeometry(2.4, 3, 2.4);
+        const lanternCapGeo = new THREE.BoxGeometry(1.5, 0.7, 1.5);
+        const lanternTasselGeo = new THREE.BoxGeometry(0.5, 1.6, 0.5);
+        const lanternBodyMat = new THREE.MeshBasicMaterial({ color: 0xff4640 });
+        const lanternBodyMat2 = new THREE.MeshBasicMaterial({ color: 0xff7a3c });
+        const lanternCapMat = new THREE.MeshBasicMaterial({ color: 0xffc75c });
+        const lanternTasselMat = new THREE.MeshBasicMaterial({ color: 0xffd84d });
+
+        function lanternString(x1, y1, z1, x2, y2, z2, sag, count) {
+            const pt = (u) => [x1 + (x2 - x1) * u, y1 + (y2 - y1) * u - sag * 4 * u * (1 - u), z1 + (z2 - z1) * u];
+            const steps = Math.ceil(Math.hypot(x2 - x1, y2 - y1, z2 - z1) * 1.1);
+            for (let i = 0; i <= steps; i++) {
+                const [px, py, pz] = pt(i / steps);
+                v.add(px, py, pz, P.wire);
+            }
+            for (let k = 0; k < count; k++) {
+                const [px, py, pz] = pt(0.06 + 0.88 * k / (count - 1));
+                const g = new THREE.Group();
+                g.position.set(px, py, pz);
+                const body = new THREE.Mesh(lanternBodyGeo, k % 4 === 3 ? lanternBodyMat2 : lanternBodyMat);
+                body.position.y = -2.4;
+                const capT = new THREE.Mesh(lanternCapGeo, lanternCapMat); capT.position.y = -0.8;
+                const capB = new THREE.Mesh(lanternCapGeo, lanternCapMat); capB.position.y = -4;
+                const tassel = new THREE.Mesh(lanternTasselGeo, lanternTasselMat); tassel.position.y = -5.1;
+                g.add(body, capT, capB, tassel);
+                g.userData = { phase: k * 0.65 + px * 0.03, amp: 0.1 + rng() * 0.1 };
+                lanternRoot.add(g);
+                lanterns.push(g);
+            }
+        }
+        // 홍등 줄 기둥 (담장 양 끝)
+        v.box(-61, 1, -19, -60, 31, -18, P.pole);
+        v.box(60, 1, -19, 61, 31, -18, P.pole);
+        lanternString(-60, 30, -18, 60, 30, -18, 5, 13);
+        lanternString(-56, 31, 8, 52, 33, -1, 7, 12);
+
+        // ── 솥에서 피어오르는 김 입자 ──
+        const steamRoot = new THREE.Group();
+        scene.add(steamRoot);
+        const steamParticles = [];
+        const steamGeo = new THREE.BoxGeometry(1, 1, 1);
+        function makeSteam(x, y, z, count) {
+            for (let i = 0; i < count; i++) {
+                const mat = new THREE.MeshBasicMaterial({ color: 0xe8ecf2, transparent: true, opacity: 0 });
+                const m = new THREE.Mesh(steamGeo, mat);
+                m.userData = {
+                    x: x + rng() * 3 - 1.5, z: z + rng() * 2 - 1, baseY: y,
+                    rise: 11 + rng() * 6, speed: 0.16 + rng() * 0.12,
+                    phase: rng(), sway: 0.8 + rng() * 1.4,
+                };
+                steamRoot.add(m);
+                steamParticles.push(m);
+            }
+        }
+        makeSteam(-40, 10, -10, 12);  // 어묵 솥
+        makeSteam(-3, 9, -10, 8);     // 붕어빵 틀
+        makeSteam(32, 9, -10, 10);    // 전 철판
+
+        // ── 깜빡이는 네온 간판 ("야시장") ──
+        v.box(-9, 10, -27, -8, 21, -26, 0x37313d);   // 지지 기둥
+        v.box(4, 10, -27, 5, 21, -26, 0x37313d);
+        v.box(-10, 22, -27, 6, 34, -26, 0x1d1826);   // 간판 배경판
+        const neonGroup = new THREE.Group();
+        scene.add(neonGroup);
+        const neonTubeMat = new THREE.MeshBasicMaterial({ color: 0xff4757, transparent: true, opacity: 0.9 });
+        const neonTextMat = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.9 });
+        function neonBox(w, h, dpt, x, y, z, mat) {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, dpt), mat);
+            m.position.set(x, y, z);
+            neonGroup.add(m);
+        }
+        const nz = -25.2;
+        neonBox(15, 0.7, 0.7, -2, 33.4, nz, neonTubeMat);
+        neonBox(15, 0.7, 0.7, -2, 22.6, nz, neonTubeMat);
+        neonBox(0.7, 11.5, 0.7, -9.4, 28, nz, neonTubeMat);
+        neonBox(0.7, 11.5, 0.7, 5.4, 28, nz, neonTubeMat);
+        for (let i = 0; i < 3; i++) neonBox(3.2, 6, 0.7, -6.4 + i * 4.4, 28, nz, neonTextMat);
+
+        scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.88, metalness: 0.03 }));
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+            // 홍등 진자 운동
+            for (const g of lanterns) {
+                const u = g.userData;
+                g.rotation.z = Math.sin(t * 1.35 + u.phase) * u.amp;
+                g.rotation.x = Math.sin(t * 1.05 + u.phase * 1.6) * u.amp * 0.6;
+            }
+            // 김 입자 상승 루프
+            for (const p of steamParticles) {
+                const u = p.userData;
+                const c = (t * u.speed + u.phase) % 1;
+                p.position.set(
+                    u.x + Math.sin(t * 1.6 + u.phase * 9) * u.sway * c,
+                    u.baseY + u.rise * c,
+                    u.z + Math.cos(t * 1.2 + u.phase * 7) * 0.6 * c);
+                p.scale.setScalar(0.7 + c * 2.2);
+                p.material.opacity = Math.sin(Math.min(c * 3, 1) * Math.PI / 2) * (1 - c) * 0.5;
+            }
+            // 네온 깜빡임 (가끔 뚝 꺼졌다 켜지는 스터터)
+            const buzz = Math.sin(t * 12.9) * Math.sin(t * 3.7) + Math.sin(t * 31.7) * 0.35;
+            const on = buzz > -1.1 ? 1 : 0.15;
+            const flick = on * (0.86 + 0.14 * Math.sin(t * 43));
+            neonTubeMat.opacity = 0.25 + 0.7 * flick;
+            neonTextMat.opacity = 0.25 + 0.7 * flick;
+            neonLight.intensity = 2.4 * flick;
+            // 화덕 온기 흔들림
+            warmLight.intensity = 3.4 + Math.sin(t * 6.3) * 0.35 + Math.sin(t * 13.1) * 0.15;
+            controls.target.y = 13 + Math.sin(t * 0.9) * 0.8;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

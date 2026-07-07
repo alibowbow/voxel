@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 화성 개척 기지</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(#1a0c08 0%, #3d1a14 55%, #6e3420 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 40%, rgba(16, 5, 2, 0.5) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #1a0c08; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #ff8a5c;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(255, 138, 92, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #7fd8e8; box-shadow: 0 0 24px rgba(127, 216, 232, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #d09a80; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(30, 10, 5, 0.62);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(255, 190, 150, 0.22);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.42); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #ff8a5c; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #7fd8e8; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #f5e0d5; line-height: 1.8;
+            background: rgba(0,0,0,0.26); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>붉은 사막 위에 거주 돔을 조립하고 있습니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">화성 개척 기지</div>
+        <div class="subtitle">돔 거주구 · 순찰 로버 · 먼지 회오리 · 푸른 지구</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x2a120c);
+        scene.fog = new THREE.FogExp2(0x3a1a10, 0.0032);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(-78, 48, 92);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.25;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 10, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 240;
+        controls.minDistance = 24;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.7;
+
+        // 화성의 낮 — 낮게 깔린 주황빛 태양
+        scene.add(new THREE.AmbientLight(0x8a5a48, 0.75));
+        scene.add(new THREE.HemisphereLight(0xd88a5c, 0x2e140c, 0.65));
+        const sun = new THREE.DirectionalLight(0xffcaa0, 1.2);
+        sun.position.set(70, 100, 30);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(4096, 4096);
+        const d = 120;
+        sun.shadow.camera.left = -d; sun.shadow.camera.right = d;
+        sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
+        sun.shadow.camera.near = 10; sun.shadow.camera.far = 400;
+        sun.shadow.bias = -0.0005;
+        scene.add(sun);
+        const doorLight = new THREE.PointLight(0xffd8a0, 1.3, 34, 2);
+        doorLight.position.set(-16, 5, 24);
+        scene.add(doorLight);
+        const beaconLight = new THREE.PointLight(0xff4a3c, 1.5, 46, 2);
+        beaconLight.position.set(-24, 32, -16);
+        scene.add(beaconLight);
+
+        const P = {
+            sand: 0xbf5b33, sandShade: 0x9c4526, sandLight: 0xd97a4a, sandDeep: 0x8a3f24,
+            track: 0x93411f, trackD: 0x7e3619, channel: 0x8a3a20,
+            rock: 0x7a3a22, rockD: 0x5c2a18,
+            frame: 0xe8e4da, frameD: 0xc8ccd2, hull: 0xd8d4cc, metal: 0x9aa0a8, metalD: 0x6e737b,
+            glass: 0x9fd8e8, glassGreen: 0xa8e0c0, warm: 0xfff2c0,
+            cellA: 0x1f3a6e, cellB: 0x2a4a8c,
+            pad: 0x8a8f99, red: 0xff4a3c, flag: 0xff8a5c,
+            star: 0xfff5ea, starWarm: 0xffd8c0,
+        };
+
+        const v = new VoxelBuilder();
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(20260707);
+
+        // ---- 지형 높이 함수 (로버도 같은 함수로 지면을 따라간다) ----
+        const craters = [
+            { x: 52, z: 20, r: 8, dep: 3.5, rim: 2 },
+            { x: -48, z: 26, r: 6, dep: 3, rim: 1.5 },
+            { x: -40, z: -30, r: 7, dep: 3, rim: 2 },
+        ];
+        function terrainHf(x, z) {
+            const d0 = Math.hypot(x, z - 4);
+            const flat = Math.min(1, Math.max(0, (d0 - 18) / 16)); // 기지 중심부는 평탄화
+            let h = (Math.sin(x * 0.055) * 1.6 + Math.cos(z * 0.065) * 1.6 + Math.sin((x + z) * 0.035) * 1.1) * flat;
+            for (const c of craters) {
+                const cd = Math.hypot(x - c.x, z - c.z);
+                if (cd < c.r) h -= c.dep * (1 - (cd / c.r) * (cd / c.r));
+                else if (cd < c.r + 2.5) h += c.rim * (1 - (cd - c.r) / 2.5);
+            }
+            return h;
+        }
+
+        function desert() {
+            for (let x = -68; x <= 68; x++) {
+                for (let z = -58; z <= 58; z++) {
+                    const h = Math.round(terrainHf(x, z));
+                    const d0 = Math.hypot(x, z - 4);
+                    let c = rng() > 0.85 ? P.sandShade : P.sand;
+                    if (rng() > 0.965) c = P.sandLight;
+                    let inCrater = false;
+                    for (const cr of craters) if (Math.hypot(x - cr.x, z - cr.z) < cr.r) inCrater = true;
+                    if (inCrater) c = rng() > 0.5 ? P.sandDeep : P.sandShade;
+                    if (Math.abs(d0 - 38) < 1.4) c = (x + z) % 2 ? P.track : P.trackD; // 로버 순찰 궤도 자국
+                    if (z > -46 && z < -24) { // 협곡 입구에서 흘러나온 마른 물길
+                        const chX = 2 + Math.sin(z * 0.15) * 3;
+                        if (Math.abs(x - chX) < 3) c = P.channel;
+                    }
+                    v.add(x, h, z, c);
+                    v.add(x, h - 1, z, P.sandShade);
+                    if (rng() > 0.996) v.add(x, h + 1, z, P.rockD); // 자갈
+                }
+            }
+        }
+
+        // ---- 거주 돔 ----
+        function dome(cx, cz, r, glassColor) {
+            v.cylinderY(cx, -2, 0, cz, r + 2, P.pad); // 콘크리트 기초 패드
+            v.ringY(cx, 0, cz, r + 1.5, 0.6, P.metalD);
+            v.sphere(cx, 0, cz, r, glassColor);
+            for (const hy of [2, 5, 8]) { // 수평 프레임 후프
+                if (hy < r - 1) v.ringY(cx, hy, cz, Math.sqrt(r * r - hy * hy), 0.6, P.frame);
+            }
+            for (let k = 0; k < 8; k++) { // 자오선 리브
+                const th = k * Math.PI / 4;
+                const pts = [[r, 0], [r * 0.835, r * 0.55], [r * 0.51, r * 0.86], [0, r]];
+                for (let i = 0; i < pts.length - 1; i++) {
+                    v.line(cx + pts[i][0] * Math.cos(th), pts[i][1], cz + pts[i][0] * Math.sin(th),
+                        cx + pts[i + 1][0] * Math.cos(th), pts[i + 1][1], cz + pts[i + 1][0] * Math.sin(th), 0.7, P.frame);
+                }
+            }
+            v.add(cx, r + 1, cz, P.red); // 꼭대기 표지등
+        }
+
+        function baseStructures() {
+            dome(-16, 8, 11, P.glass);          // 거주 돔
+            dome(12, -10, 8, P.glassGreen);     // 온실 돔
+            // 연결 통로 (에어락 튜브)
+            v.line(-8, 2.5, 3, 6, 2.5, -6, 2.6, P.hull);
+            v.line(-8, 4, 3, 6, 4, -6, 1.1, P.glass); // 천창
+            v.sphere(-8, 2, 3, 3, P.metal); v.sphere(6, 2, -6, 3, P.metal);
+            // 거주 돔 에어락 출입구
+            v.box(-18, 0, 17, -14, 6, 22, P.hull);
+            v.box(-17, 1, 22, -15, 5, 22, P.metalD);
+            v.add(-16, 3, 23, P.warm);
+            v.box(-19, 1, 23, -13, 1, 26, P.pad); // 출입 계단참
+            // 개척 깃발
+            v.line(-8, 0, 20, -8, 9, 20, 0.4, P.metal);
+            v.box(-7, 6, 20, -4, 8, 20, P.flag);
+            v.add(-6, 7, 20, 0xffffff);
+            // 산소/연료 탱크
+            v.cylinderZ(24, 3, -12, -4, 2.5, P.frame);
+            v.sphere(24, 3, -12, 2.5, P.frameD); v.sphere(24, 3, -4, 2.5, P.frameD);
+            v.cylinderZ(30, 3, -12, -4, 2.5, P.frameD);
+            v.sphere(30, 3, -12, 2.3, P.metal); v.sphere(30, 3, -4, 2.3, P.metal);
+            v.box(22, 0, -13, 32, 0, -3, P.pad);
+        }
+
+        // ---- 태양광 패널 ----
+        function solarPanel(px, pz) {
+            v.box(px + 1, -1, pz - 2, px + 1, 2, pz - 2, P.metalD);
+            v.box(px + 1, -1, pz + 2, px + 1, 2, pz + 2, P.metalD);
+            v.box(px + 3, -1, pz - 2, px + 3, 4, pz - 2, P.metalD);
+            v.box(px + 3, -1, pz + 2, px + 3, 4, pz + 2, P.metalD);
+            for (let i = 0; i < 5; i++)
+                v.box(px + i, 2 + i, pz - 3, px + i, 2 + i, pz + 3, i % 2 ? P.cellB : P.cellA);
+            v.box(px, 2, pz - 3, px, 2, pz + 3, P.frameD);
+            v.box(px + 4, 6, pz - 3, px + 4, 6, pz + 3, P.frameD);
+        }
+
+        function solarFarm() {
+            solarPanel(2, 24); solarPanel(9, 24); solarPanel(16, 24);
+            solarPanel(4, 31); solarPanel(11, 31);
+            v.line(1, 0, 24, -5, 0, 19, 0.4, P.metalD); // 기지로 이어지는 케이블
+        }
+
+        // ---- 통신 안테나 ----
+        function antenna() {
+            const ax = -24, az = -16;
+            v.box(ax - 2, 0, az - 2, ax + 2, 1, az + 2, P.pad);
+            for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]])
+                v.line(ax + ox * 1.5, 1, az + oz * 1.5, ax + ox * 0.5, 25, az + oz * 0.5, 0.4, P.metal);
+            for (let y = 5; y <= 23; y += 5) v.box(ax - 1, y, az - 1, ax + 1, y, az + 1, P.metalD);
+            v.cylinderY(ax, 25, 26, az, 2, P.frameD); // 접시 받침
+            v.ringY(ax, 27, az, 4, 1, P.frame);
+            v.ringY(ax, 28, az, 5.5, 1, P.frame);
+            v.line(ax, 26, az, ax, 31, az, 0.4, P.metal); // 피드혼
+            v.add(ax, 31, az, P.red);
+        }
+
+        // ---- 협곡 & 메사 (원경) ----
+        function mesa(mx, hw, tw, H, z1, z2) {
+            const strata = [0x6e3018, 0x8a4224, 0x7a3820, 0x94502c];
+            for (let y = 0; y <= H; y++) {
+                const w = Math.round(hw - (hw - tw) * (y / H));
+                v.box(mx - w, y, z1, mx + w, y, z2, y === H ? 0xc06038 : strata[(y >> 2) & 3]);
+            }
+        }
+
+        function canyon() {
+            mesa(-48, 13, 8, 15, -58, -47);
+            mesa(-18, 12, 7, 18, -58, -46);
+            mesa(22, 12, 8, 17, -58, -46);
+            mesa(50, 13, 9, 14, -58, -48);
+            mesa(2, 9, 7, 9, -58, -54);   // 협곡 안쪽 벽 (깊이감)
+            v.box(-6, 0, -58, 10, 0, -46, P.rockD); // 협곡 바닥
+            v.sphere(-3, 1, -48, 2, P.rock); v.sphere(7, 1, -50, 1.6, P.rockD); // 낙석
+            mesa(66, 4, 2, 10, -54, -49);  // 작은 뷰트
+        }
+
+        function rocks() {
+            for (let i = 0; i < 30; i++) {
+                const x = -64 + rng() * 128;
+                const z = -40 + rng() * 94;
+                const d0 = Math.hypot(x, z - 4);
+                if (d0 < 44) continue; // 기지·순찰로는 비워둔다
+                const h = Math.round(terrainHf(x, z));
+                const r = 1 + rng() * 1.8;
+                v.ellipsoid(Math.round(x), h + 1, Math.round(z), Math.round(r + rng()), Math.round(r * 0.7), Math.round(r), rng() > 0.5 ? P.rock : P.rockD);
+            }
+        }
+
+        function skyDeco() {
+            for (let i = 0; i < 70; i++) { // 옅은 대기 너머의 별
+                v.add(-68 + rng() * 136, 62 + rng() * 44, -58 + rng() * 48, rng() > 0.7 ? P.starWarm : P.star);
+            }
+        }
+
+        desert();
+        baseStructures();
+        solarFarm();
+        antenna();
+        canyon();
+        rocks();
+        skyDeco();
+
+        scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.9, metalness: 0.04 }));
+
+        // ---- 탐사 로버 (궤도 순찰 + 바퀴 회전) ----
+        const rover = new THREE.Group();
+        scene.add(rover);
+        const rv = new VoxelBuilder();
+        rv.box(-4, 3, -2, 4, 4, 2, P.frame);            // 몸체
+        rv.box(-3, 5, -1, 0, 5, 1, P.frameD);           // 상판 장비
+        rv.box(1, 5, -1, 3, 5, 1, P.cellB);             // 소형 태양광
+        rv.box(-5, 3, -1, -5, 5, 1, 0x555a63);          // 후방 RTG
+        rv.add(5, 3, 1, P.warm); rv.add(5, 3, -1, P.warm); // 전조등
+        rv.line(3, 5, 0, 3, 9, 0, 0.4, P.metal);        // 카메라 마스트
+        rv.box(2, 9, -1, 4, 10, 1, P.frameD);
+        rv.add(4, 10, 1, 0x222222); rv.add(4, 10, -1, 0x222222); // 카메라 렌즈
+        rv.line(-2, 5, 0, -2, 8, 0, 0.3, P.metal);      // 안테나
+        rv.add(-2, 8, 0, P.red);
+        rv.line(4, 3, 2, 7, 1, 3, 0.5, P.metalD);       // 로봇 팔
+        rover.add(buildVoxelMesh(THREE, rv, { size: 0.95, roughness: 0.7, metalness: 0.25 }));
+        const wheels = [];
+        const wheelGeo = new THREE.CylinderGeometry(1.6, 1.6, 1.3, 10);
+        wheelGeo.rotateX(Math.PI / 2);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x33363c, roughness: 0.95 });
+        for (const wx of [-3.5, 0, 3.5]) for (const wz of [-2.9, 2.9]) {
+            const w = new THREE.Mesh(wheelGeo, wheelMat);
+            w.position.set(wx, 1.6, wz);
+            w.castShadow = true; w.receiveShadow = true;
+            rover.add(w);
+            wheels.push(w);
+        }
+
+        // ---- 지구가 보이는 하늘 ----
+        const earthGroup = new THREE.Group();
+        scene.add(earthGroup);
+        const ev = new VoxelBuilder();
+        ev.sphere(0, 0, 0, 4, 0x2a6fd6);
+        ev.ellipsoid(2, 1, 2, 2, 1, 2, 0x3fa65c);       // 대륙
+        ev.ellipsoid(-2, -1, 1, 1, 2, 1, 0x3fa65c);
+        ev.add(0, 4, 0, 0xffffff); ev.add(0, -4, 0, 0xffffff); // 극지방
+        ev.add(3, 2, -1, 0xffffff); ev.add(-3, 0, -2, 0xffffff); // 구름
+        earthGroup.add(buildVoxelMesh(THREE, ev, { size: 0.95, roughness: 0.6, metalness: 0 }));
+        earthGroup.position.set(44, 92, -54);
+
+        // ---- 먼지 회오리 (회전 상승 입자) ----
+        const devilDefs = [{ x: 52, z: -22 }, { x: -54, z: 6 }, { x: 38, z: 46 }];
+        const devils = [];
+        const dustGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+        const dustMat = new THREE.MeshBasicMaterial({ color: 0xd9906a, transparent: true, opacity: 0.5 });
+        for (const def of devilDefs) {
+            const g = new THREE.Group();
+            g.position.set(def.x, 0, def.z);
+            scene.add(g);
+            const parts = [];
+            for (let i = 0; i < 36; i++) {
+                const p = new THREE.Mesh(dustGeo, dustMat);
+                p.userData = { ph: rng(), sp: 0.1 + rng() * 0.08, a0: rng() * Math.PI * 2 };
+                g.add(p);
+                parts.push(p);
+            }
+            devils.push({ g, parts, baseX: def.x, baseZ: def.z, k: devils.length });
+        }
+
+        // ---- 안테나 표지등 (점멸) ----
+        const beacon = new THREE.Mesh(
+            new THREE.SphereGeometry(0.8, 10, 10),
+            new THREE.MeshBasicMaterial({ color: 0xff4a3c, transparent: true, opacity: 0.9 })
+        );
+        beacon.position.set(-24, 31.5, -16);
+        scene.add(beacon);
+
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            const t = clock.elapsedTime;
+
+            // 로버 순찰: 기지 주위 원 궤도 + 지형 추종 + 바퀴 회전
+            const a = t * 0.16;
+            const rx = Math.cos(a) * 38;
+            const rz = 4 + Math.sin(a) * 38;
+            rover.position.set(rx, terrainHf(rx, rz) + 0.5, rz);
+            rover.rotation.y = -a - Math.PI / 2;
+            for (const w of wheels) w.rotation.z -= dt * 3.8;
+
+            // 지구: 자전 + 미세한 부유
+            earthGroup.rotation.y = t * 0.1;
+            earthGroup.position.y = 92 + Math.sin(t * 0.3) * 1.5;
+
+            // 먼지 회오리: 나선 상승 + 느린 표류
+            for (const dv of devils) {
+                dv.g.position.x = dv.baseX + Math.sin(t * 0.13 + dv.k * 2.1) * 5;
+                dv.g.position.z = dv.baseZ + Math.cos(t * 0.11 + dv.k * 1.7) * 4;
+                for (const p of dv.parts) {
+                    const u = p.userData;
+                    const cyc = (t * u.sp + u.ph) % 1;
+                    const rad = 1.2 + cyc * 4.5;
+                    const ang = u.a0 + t * 2.4 + cyc * 5;
+                    p.position.set(Math.cos(ang) * rad, cyc * 20, Math.sin(ang) * rad);
+                    p.scale.setScalar(Math.max(0.15, 1.1 - cyc * 0.8));
+                }
+            }
+
+            // 표지등 점멸
+            const pulse = Math.sin(t * 2.6) * 0.5 + 0.5;
+            beacon.material.opacity = 0.25 + 0.7 * pulse;
+            beaconLight.intensity = 0.4 + 2.2 * pulse;
+
+            controls.target.y = 10 + Math.sin(t * 0.9) * 0.8;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

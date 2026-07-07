@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 용의 성</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(180deg, #3d1a4a 0%, #7a2a4a 55%, #c25a3c 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 40%, rgba(24, 6, 18, 0.5) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #3d1a4a; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #ff5c3c;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(255, 92, 60, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #ffb35c; box-shadow: 0 0 24px rgba(255, 179, 92, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #d9a0b0; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(40, 12, 30, 0.62);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(255, 200, 170, 0.22);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.42); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #ff5c3c; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #ffb35c; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #f5dfe0; line-height: 1.8;
+            background: rgba(0,0,0,0.26); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>노을 진 절벽 위에 용의 성을 쌓아 올리고 있습니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">용의 성</div>
+        <div class="subtitle">노을 · 선회하는 드래곤 · 화염 브레스 · 해자와 다리</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x4e2347);
+        scene.fog = new THREE.FogExp2(0x8a4550, 0.0030);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(-84, 52, 96);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.25;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 24, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 260;
+        controls.minDistance = 26;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.7;
+
+        // 노을빛 조명
+        scene.add(new THREE.AmbientLight(0xff9a6a, 0.55));
+        scene.add(new THREE.HemisphereLight(0xdf7a8a, 0x3a2438, 0.75));
+        const sunLight = new THREE.DirectionalLight(0xffb37a, 1.4);
+        sunLight.position.set(45, 70, -50);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.set(4096, 4096);
+        const d = 110;
+        sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
+        sunLight.shadow.camera.near = 10; sunLight.shadow.camera.far = 400;
+        sunLight.shadow.bias = -0.0005;
+        scene.add(sunLight);
+        const gateTorch = new THREE.PointLight(0xffa04a, 1.8, 55, 2);
+        gateTorch.position.set(0, 7, 36);
+        scene.add(gateTorch);
+
+        const P = {
+            grass: 0x8f9754, grassD: 0x76813f, grassL: 0xa8ad66, dirt: 0x6b5a3a,
+            rock: 0x7d6a5c, rockD: 0x5e4d42, rockL: 0x93806e,
+            stone: 0xb9b2a6, stoneD: 0x968d80, stoneL: 0xd6cfc0,
+            roof: 0x8f3040, roofD: 0x6e2432,
+            wood: 0x8a5c30, woodD: 0x64401e, doorDark: 0x2a161c,
+            water: 0x3f6b8f, waterD: 0x35597a, waterL: 0x7ba8c4,
+            window: 0xffb35c, flag: 0xff5c3c,
+            mtnFar: 0x5a3556, mtnNear: 0x422a48, peakLit: 0xd98a6a,
+            sun: 0xffca7a, sunCore: 0xffeab0,
+            cloud: 0xd97f6f, cloudL: 0xf0a88e,
+            trunk: 0x4a3018, leafA: 0xc26a30, leafB: 0xd98a3c,
+            flowerA: 0xff8a3c, flowerB: 0xffd23c, flowerC: 0xd6455c,
+        };
+
+        const v = new VoxelBuilder();
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(20260707);
+        const gh = (x, z) => Math.max(-1, Math.floor(Math.sin(x * 0.07) * 1.6 + Math.cos(z * 0.08) * 1.6));
+
+        function terrain() {
+            for (let x = -68; x <= 68; x++) {
+                for (let z = -58; z <= 58; z++) {
+                    const dd = Math.hypot(x, z);
+                    if (dd < 27) continue; // 절벽이 덮는 구역
+                    if (dd >= 30.5 && dd < 38) { // 해자
+                        const w = rng();
+                        v.add(x, 0, z, w > 0.93 ? P.waterL : (w > 0.8 ? P.waterD : P.water));
+                        continue;
+                    }
+                    let h = gh(x, z);
+                    if (dd < 42) h = Math.max(0, Math.min(h, 1)); // 해자 주변 평탄화
+                    if (dd < 30.5) { // 해자 안쪽 절벽 기슭
+                        v.add(x, 1, z, P.rockD);
+                        v.add(x, 0, z, P.rockD);
+                        continue;
+                    }
+                    if (dd < 40) { // 해자 바깥 석축
+                        v.add(x, 1, z, (x + z) % 2 ? P.stoneD : P.stone);
+                        v.add(x, 0, z, P.stoneD);
+                        continue;
+                    }
+                    const g = rng();
+                    v.add(x, h, z, g > 0.86 ? P.grassD : (g > 0.06 ? P.grass : P.grassL));
+                    v.add(x, h - 1, z, P.dirt);
+                    if (dd > 43 && g > 0.985) v.add(x, h + 1, z, [P.flowerA, P.flowerB, P.flowerC][Math.floor(rng() * 3)]);
+                    else if (g < 0.004) v.add(x, h + 1, z, P.rockL);
+                }
+            }
+        }
+
+        function cliff() {
+            for (let y = 0; y <= 15; y++) { // 층층이 좁아지는 바위 절벽
+                const r = 30 - y * 0.55;
+                v.ringY(0, y, 0, r - 0.6, 1.1, y % 4 === 0 ? P.rockD : (y % 4 === 2 ? P.rockL : P.rock));
+            }
+            for (let i = 0; i < 60; i++) { // 불규칙한 바위 돌출부
+                const a = rng() * Math.PI * 2;
+                const y = Math.floor(rng() * 14);
+                const r = 30 - y * 0.55 + 0.6;
+                v.add(Math.round(Math.cos(a) * r), y, Math.round(Math.sin(a) * r), rng() > 0.5 ? P.rockD : P.rockL);
+            }
+            v.cylinderY(0, 15, 16, 0, 22, P.grass); // 정상 잔디 마당
+            v.ringY(0, 16, 0, 21.2, 1, P.grassD);
+        }
+
+        function gatehouse() { // 절벽 밑 관문
+            v.box(-5, 1, 27, 5, 9, 31, P.stone);
+            v.box(-5, 9, 27, 5, 9, 31, P.stoneD);
+            for (let x = -5; x <= 5; x += 2) v.add(x, 10, 31, P.stone);
+            v.box(-2, 2, 30, 2, 6, 31, P.doorDark); // 아치 입구
+            v.box(-1, 2, 31, 1, 5, 31, P.wood);
+            v.add(-4, 6, 32, P.window); v.add(4, 6, 32, P.window); // 벽걸이 횃불
+        }
+
+        function bridge() { // 해자 위 목조 다리
+            for (let z = 31; z <= 41; z++) v.box(-2, 2, z, 2, 2, z, z % 2 ? P.wood : P.woodD);
+            v.box(-3, 4, 31, -3, 4, 41, P.wood);
+            v.box(3, 4, 31, 3, 4, 41, P.wood);
+            for (let z = 31; z <= 41; z += 3) { v.add(-3, 3, z, P.woodD); v.add(3, 3, z, P.woodD); }
+            v.box(-2, 0, 34, 2, 1, 35, P.stoneD); // 교각
+            v.box(-2, 0, 38, 2, 1, 39, P.stoneD);
+            for (const sx of [-4, 4]) { // 다리 입구 횃불 기둥
+                v.box(sx, 1, 42, sx, 6, 42, P.woodD);
+                v.add(sx, 7, 42, P.window);
+                v.add(sx, 8, 42, P.flowerB);
+            }
+        }
+
+        function walls() { // 성벽 (y17~23) + 총안
+            v.box(-15, 17, -12, 15, 23, -11, P.stone);
+            v.box(-15, 17, 11, -4, 23, 12, P.stone);
+            v.box(4, 17, 11, 15, 23, 12, P.stone);
+            v.box(-4, 21, 11, 4, 23, 12, P.stone); // 성문 위 아치
+            v.box(-15, 17, -12, -14, 23, 12, P.stone);
+            v.box(14, 17, -12, 15, 23, 12, P.stone);
+            for (let x = -15; x <= 15; x += 3) {
+                v.box(x, 24, -12, Math.min(x + 1, 15), 24, -11, P.stoneL);
+                v.box(x, 24, 11, Math.min(x + 1, 15), 24, 12, P.stoneL);
+            }
+            for (let z = -12; z <= 12; z += 3) {
+                v.box(-15, 24, z, -14, 24, Math.min(z + 1, 12), P.stoneL);
+                v.box(14, 24, z, 15, 24, Math.min(z + 1, 12), P.stoneL);
+            }
+            v.box(-3, 17, 12, 3, 20, 12, P.doorDark); // 성문
+            v.box(-2, 17, 12, 2, 19, 12, P.wood);
+            v.box(-8, 18, 12, -6, 22, 12, P.flag); // 성벽 배너
+            v.box(6, 18, 12, 8, 22, 12, P.flag);
+            v.add(-7, 21, 12, P.flowerB); v.add(7, 21, 12, P.flowerB);
+            v.box(-2, 16, 12, 2, 16, 21, P.stoneD); // 성문 앞 포장길
+            v.box(-2, 16, 2, 2, 16, 11, P.stoneD);
+        }
+
+        function keep() { // 본성
+            v.box(-8, 17, -10, 8, 29, 2, P.stone);
+            for (const cx of [-8, 8]) for (const cz of [-10, 2]) v.box(cx, 17, cz, cx, 29, cz, P.stoneD);
+            for (const wx of [-5, 0, 5]) v.box(wx, 22, 2, wx + 1, 25, 2, P.window); // 온기 어린 창
+            for (const wy of [20, 25]) {
+                v.box(-8, wy, -7, -8, wy + 2, -6, P.window);
+                v.box(8, wy, -7, 8, wy + 2, -6, P.window);
+            }
+            v.box(-2, 17, 2, 2, 20, 2, P.doorDark); // 본성 정문
+            v.box(-1, 17, 2, 1, 19, 2, P.woodD);
+            for (let i = 0; i < 5; i++) // 지붕
+                v.box(-9 + i * 2, 30 + i, -11 + i, 9 - i * 2, 30 + i, 3 - i, i % 2 ? P.roofD : P.roof);
+        }
+
+        function tower(cx, cz, r, yTop, coneR) { // 탑 + 고깔지붕 + 깃발
+            v.cylinderY(cx, 17, yTop, cz, r, P.stone);
+            for (let y = 22; y < yTop; y += 5) v.ringY(cx, y, cz, r, 0.6, P.stoneD);
+            v.box(cx - 1, yTop - 5, Math.round(cz + r), cx + 1, yTop - 3, Math.round(cz + r), P.window);
+            v.add(Math.round(cx + r), yTop - 4, cz, P.window);
+            v.add(Math.round(cx - r), yTop - 4, cz, P.window);
+            v.ringY(cx, yTop + 1, cz, r + 0.6, 0.8, P.stone); // 상단 돌출부
+            for (let k = 0; k < 8; k++) { // 총안
+                const a = k * Math.PI / 4;
+                v.add(Math.round(cx + Math.cos(a) * (r + 0.6)), yTop + 2, Math.round(cz + Math.sin(a) * (r + 0.6)), P.stoneL);
+            }
+            const coneH = Math.round(coneR * 1.8);
+            for (let i = 0; i <= coneH; i++)
+                v.cylinderY(cx, yTop + 3 + i, yTop + 3 + i, cz, Math.max(0.5, coneR * (1 - i / coneH)), i % 2 ? P.roofD : P.roof);
+            const fy = yTop + 3 + coneH;
+            v.line(cx, fy, cz, cx, fy + 5, cz, 0.4, P.woodD); // 깃대
+            v.box(cx + 1, fy + 3, cz, cx + 4, fy + 3, cz, P.flag); // 삼각 깃발
+            v.box(cx + 1, fy + 4, cz, cx + 3, fy + 4, cz, P.flag);
+            v.add(cx + 1, fy + 5, cz, P.flag);
+        }
+
+        function skyline() { // 원경 산맥 + 태양 + 노을 구름
+            for (let mx = -66; mx <= 66; mx += 13) {
+                const peak = 26 + rng() * 18;
+                const bz = -51 - Math.floor(rng() * 5);
+                for (let y = 0; y < peak; y++) {
+                    const w = Math.max(1, Math.floor((peak - y) * 0.55));
+                    v.box(Math.max(-70, mx - w), y, bz - 2, Math.min(70, mx + w), y, bz + 2, y > peak - 4 ? P.peakLit : P.mtnFar);
+                }
+            }
+            for (let mx = -62; mx <= 62; mx += 17) {
+                const peak = 12 + rng() * 10;
+                const bz = -45 - Math.floor(rng() * 3);
+                for (let y = 0; y < peak; y++) {
+                    const w = Math.max(1, Math.floor((peak - y) * 0.8));
+                    v.box(Math.max(-70, mx - w), y, bz - 2, Math.min(70, mx + w), y, bz + 2, P.mtnNear);
+                }
+            }
+            v.sphere(28, 62, -52, 7, P.sun); // 저무는 태양
+            v.sphere(28, 62, -52, 4.5, P.sunCore);
+            const clouds = [[-46, 74, -40, 9, 1.6, 3], [-10, 82, -46, 7, 1.4, 2.5], [30, 78, -38, 10, 1.8, 3], [54, 68, -34, 6, 1.2, 2.2], [8, 70, -30, 5, 1, 2]];
+            for (const [cx, cy, cz, rx, ry, rz] of clouds) {
+                v.ellipsoid(cx, cy, cz, rx, ry, rz, P.cloud);
+                v.ellipsoid(cx - 2, cy + 1, cz, Math.max(2, Math.round(rx * 0.6)), ry, Math.max(1, Math.round(rz * 0.8)), P.cloudL);
+            }
+        }
+
+        function autumnTree(x, z, s) {
+            const h = gh(x, z);
+            v.box(x, h, z, x + 1, h + 3 + s, z + 1, P.trunk);
+            v.sphere(x, h + 5 + s, z, 2.6 + s * 0.5, P.leafA);
+            v.sphere(x + 2, h + 4 + s, z + 1, 1.8, P.leafB);
+            v.sphere(x - 1, h + 6 + s, z - 1, 1.6, P.leafB);
+        }
+
+        terrain();
+        cliff();
+        gatehouse();
+        bridge();
+        walls();
+        keep();
+        tower(0, -4, 5, 43, 6.5);     // 중앙 대탑
+        tower(-13, 11, 3.5, 30, 4.5); // 성문 좌측 탑
+        tower(13, 11, 3.5, 30, 4.5);  // 성문 우측 탑
+        skyline();
+        autumnTree(-50, 28, 1); autumnTree(52, 22, 0); autumnTree(-52, -22, 2);
+        autumnTree(44, -32, 1); autumnTree(-32, 46, 0); autumnTree(34, 44, 1);
+
+        scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.88, metalness: 0.03 }));
+
+        // ── 드래곤 (그룹 기반 애니메이션) ──────────────────────────
+        const D = { body: 0x99303a, dark: 0x6e2028, belly: 0xd8a05a, wing: 0xc2452e, wingL: 0xd85a3a, horn: 0xe8d9c0, eye: 0xffd23c };
+
+        const bodyB = new VoxelBuilder();
+        bodyB.ellipsoid(0, 3, 0, 3, 3, 6, D.body);                 // 몸통 (+z가 정면)
+        bodyB.box(-1, 0, -3, 1, 1, 4, D.belly);                    // 배
+        for (let z = -5; z <= 4; z += 2)                           // 등 가시
+            bodyB.add(0, Math.round(3 + 3 * Math.sqrt(Math.max(0, 1 - z * z / 36))) + 1, z, D.dark);
+        bodyB.line(0, 4, 5, 0, 8, 10, 1.6, D.body);                // 목
+        bodyB.line(0, 6, 8, 0, 9, 11, 1.3, D.body);
+        bodyB.ellipsoid(0, 9, 12, 2, 2, 3, D.body);                // 머리
+        bodyB.box(-1, 8, 15, 1, 9, 16, D.body);                    // 주둥이
+        bodyB.box(-1, 7, 13, 1, 7, 16, D.dark);                    // 아래턱
+        bodyB.add(2, 10, 12, D.eye); bodyB.add(-2, 10, 12, D.eye); // 눈
+        bodyB.line(1, 10, 10, 3, 13, 8, 0.5, D.horn);              // 뿔
+        bodyB.line(-1, 10, 10, -3, 13, 8, 0.5, D.horn);
+        bodyB.line(0, 3, -5, 0, 4, -11, 1.3, D.body);              // 꼬리
+        bodyB.line(0, 4, -11, 0, 7, -15, 0.8, D.body);
+        bodyB.box(-1, 7, -16, 1, 8, -15, D.wing);                  // 꼬리 지느러미
+        for (const [lx, lz] of [[2, 3], [-2, 3], [2, -3], [-2, -3]]) // 다리
+            bodyB.ellipsoid(lx, 1, lz, 1, 2, 1, D.dark);
+
+        function makeWing(sgn) {
+            const b = new VoxelBuilder();
+            b.line(0, 0, 1, sgn * 6, 2, 2, 0.7, D.dark);           // 날개 뼈대
+            b.line(sgn * 6, 2, 2, sgn * 13, 4, 0, 0.6, D.dark);
+            b.line(sgn * 6, 2, 2, sgn * 13, 1, -3, 0.5, D.dark);
+            b.line(sgn * 6, 2, 2, sgn * 11, 1, -6, 0.5, D.dark);
+            for (let ix = 1; ix <= 13; ix++) {                     // 날개막
+                const yb = ix <= 6 ? ix * 0.33 : 2 + (ix - 6) * 0.28;
+                const zf = ix <= 6 ? 1 + ix * 0.17 : 2 - (ix - 6) * 0.28;
+                const zb = -1 - ix * 0.42;
+                for (let z = Math.ceil(zb); z <= Math.floor(zf); z++)
+                    b.add(sgn * ix, Math.round(yb) - 1, z, (ix + z) % 5 === 0 ? D.wingL : D.wing);
+            }
+            return b;
+        }
+
+        const dragonGroup = new THREE.Group();
+        const dragonInner = new THREE.Group();
+        dragonGroup.add(dragonInner);
+        dragonGroup.scale.setScalar(0.85);
+        dragonInner.add(buildVoxelMesh(THREE, bodyB, { size: 0.95, roughness: 0.8, metalness: 0.05 }));
+        const wingLGroup = new THREE.Group(); wingLGroup.position.set(2.5, 5, 0);
+        wingLGroup.add(buildVoxelMesh(THREE, makeWing(1), { size: 0.95, roughness: 0.8, metalness: 0.05 }));
+        const wingRGroup = new THREE.Group(); wingRGroup.position.set(-2.5, 5, 0);
+        wingRGroup.add(buildVoxelMesh(THREE, makeWing(-1), { size: 0.95, roughness: 0.8, metalness: 0.05 }));
+        dragonInner.add(wingLGroup, wingRGroup);
+        scene.add(dragonGroup);
+
+        // 화염 브레스 파티클 (주기적 분사)
+        const flameGroup = new THREE.Group();
+        flameGroup.position.set(0, 9, 16);
+        dragonInner.add(flameGroup);
+        const flameGeo = new THREE.BoxGeometry(1.3, 1.3, 1.3);
+        const flameMats = [0xffe08a, 0xff9a3c, 0xff5c3c].map(c =>
+            new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.9 }));
+        const flames = [];
+        for (let i = 0; i < 28; i++) {
+            const f = new THREE.Mesh(flameGeo, flameMats[i % 3]);
+            f.visible = false;
+            f.userData = {
+                start: (i / 28) * 1.15,
+                life: 0.65 + rng() * 0.25,
+                jx: (rng() - 0.5) * 1.2,
+                jy: (rng() - 0.5) * 0.8,
+                s: 0.7 + rng() * 0.7,
+            };
+            flameGroup.add(f);
+            flames.push(f);
+        }
+        const flameLight = new THREE.PointLight(0xff7a2e, 0, 45, 2);
+        flameLight.position.set(0, 0, 6);
+        flameGroup.add(flameLight);
+        const FLAME_PERIOD = 4.4;
+
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+
+            // 성 주위 선회 비행
+            const a = t * 0.34 + 2.0;
+            const R = 47;
+            dragonGroup.position.set(Math.cos(a) * R, 42 + Math.sin(t * 1.7) * 2.5, Math.sin(a) * R * 0.8);
+            dragonGroup.rotation.y = Math.atan2(-Math.sin(a), Math.cos(a) * 0.8);
+            dragonInner.rotation.z = -0.16 + Math.sin(t * 1.7 + 1.2) * 0.06; // 뱅킹
+            dragonInner.rotation.x = Math.sin(t * 1.7 + 0.5) * 0.07;         // 피칭
+            const flap = Math.sin(t * 5.6) * 0.62 - 0.12;                    // 날개짓 (z회전)
+            wingLGroup.rotation.z = flap;
+            wingRGroup.rotation.z = -flap;
+
+            // 주기적 화염 분사
+            const phase = t % FLAME_PERIOD;
+            for (const f of flames) {
+                const u = f.userData;
+                const age = phase - u.start;
+                if (age >= 0 && age <= u.life) {
+                    const k = age / u.life;
+                    f.visible = true;
+                    f.position.set(u.jx * k * 5, 2 - k + u.jy * k * 4 - k * k * 4, 1 + k * 16);
+                    f.scale.setScalar(u.s * (1.2 - k * 0.7));
+                } else f.visible = false;
+            }
+            flameLight.intensity = Math.max(0, Math.sin(Math.min(phase / 2.1, 1) * Math.PI)) * 5;
+
+            gateTorch.intensity = 1.6 + Math.sin(t * 5.7) * 0.3 + Math.sin(t * 12.3) * 0.15;
+            controls.target.y = 24 + Math.sin(t * 0.8) * 0.8;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
