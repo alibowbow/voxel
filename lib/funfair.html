@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 달빛 놀이공원</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(180deg, #141b3d 0%, #2a2450 55%, #4a2a68 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 40%, rgba(8, 4, 20, 0.5) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #141b3d; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #ff6bb5;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(255, 107, 181, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #ffd86b; box-shadow: 0 0 24px rgba(255, 216, 107, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #a99ad0; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(16, 10, 38, 0.62);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(255, 190, 230, 0.22);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.42); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #ff6bb5; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #ffd86b; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #e8ddf5; line-height: 1.8;
+            background: rgba(0,0,0,0.26); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>달빛 아래 대관람차가 도는 놀이공원을 짓고 있습니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">달빛 놀이공원</div>
+        <div class="subtitle">대관람차 · 회전목마 · 풍선 · 전구 불빛</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x171d44);
+        scene.fog = new THREE.FogExp2(0x1c1c48, 0.0034);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(78, 48, 96);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.25;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 20, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 260;
+        controls.minDistance = 24;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.7;
+
+        // 달빛 + 축제의 불빛
+        scene.add(new THREE.AmbientLight(0x4c5596, 0.7));
+        scene.add(new THREE.HemisphereLight(0x8a8ade, 0x1c1230, 0.65));
+        const moonLight = new THREE.DirectionalLight(0xb8c8ff, 1.05);
+        moonLight.position.set(60, 110, -50);
+        moonLight.castShadow = true;
+        moonLight.shadow.mapSize.set(4096, 4096);
+        const d = 120;
+        moonLight.shadow.camera.left = -d; moonLight.shadow.camera.right = d;
+        moonLight.shadow.camera.top = d; moonLight.shadow.camera.bottom = -d;
+        moonLight.shadow.camera.near = 10; moonLight.shadow.camera.far = 400;
+        moonLight.shadow.bias = -0.0005;
+        scene.add(moonLight);
+        const carouselGlow = new THREE.PointLight(0xffc878, 1.8, 70, 2);
+        carouselGlow.position.set(28, 14, -8);
+        scene.add(carouselGlow);
+        const wheelGlow = new THREE.PointLight(0xff6bb5, 1.6, 90, 2);
+        wheelGlow.position.set(-32, 36, -10);
+        scene.add(wheelGlow);
+
+        const P = {
+            grass: 0x27503a, grassD: 0x1e4130, grassL: 0x35634a,
+            path: 0x9a8a70, pathD: 0x82735c,
+            steel: 0x39456e, steelD: 0x272f4e,
+            rim: 0xff6bb5, spoke: 0x8ad8ff, hub: 0xffd86b,
+            wood: 0xa06a38, woodD: 0x7c4f26,
+            cream: 0xf5ede0, red: 0xd6455c, gold: 0xffd15c,
+            pole: 0x2a3050, wire: 0x1c2136,
+            trunk: 0x4c351e, leaf: 0x24503a, leafL: 0x39704e,
+            moon: 0xf7f2e8, star: 0xffffff, hill: 0x262e58, hillTop: 0x3a4276,
+            fence: 0x55628e,
+        };
+
+        const v = new VoxelBuilder();
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(20260707);
+
+        // ---------- 지형: 밤 잔디밭 + 자갈 광장/산책로 ----------
+        function ground() {
+            for (let x = -68; x <= 68; x++) {
+                for (let z = -58; z <= 58; z++) {
+                    const plaza = Math.hypot(x, z + 6) < 15;
+                    const walkway = Math.abs(x) <= 4 && z > -6 && z <= 48;
+                    const toWheel = Math.abs(z + 14) <= 3 && x < -8 && x > -46;
+                    const toCarousel = Math.abs(z + 8) <= 3 && x > 8 && x < 42;
+                    if (plaza || walkway || toWheel || toCarousel) {
+                        v.add(x, 0, z, (x + z) % 2 ? P.path : (rng() > 0.85 ? P.pathD : P.path));
+                    } else {
+                        const r = rng();
+                        v.add(x, 0, z, r > 0.9 ? P.grassL : (r > 0.5 ? P.grass : P.grassD));
+                    }
+                    v.add(x, -1, z, P.grassD);
+                }
+            }
+            // 광장 중앙 별 모양 포석
+            for (let a = 0; a < 8; a++) {
+                const ang = a * Math.PI / 4;
+                v.line(0, 0, -6, Math.round(Math.cos(ang) * 10), 0, -6 + Math.round(Math.sin(ang) * 10), 0.5, 0xb8a888);
+            }
+        }
+
+        // ---------- 대관람차 지지대 (정적) ----------
+        const WX = -32, WZ = -16, HUB_Y = 34, WHEEL_R = 22;
+        function wheelSupport() {
+            for (const dz of [-6, 6]) {
+                v.line(WX - 13, 0, WZ + dz, WX, HUB_Y, WZ + dz, 1.3, P.steel);
+                v.line(WX + 13, 0, WZ + dz, WX, HUB_Y, WZ + dz, 1.3, P.steel);
+                v.line(WX - 7, 17, WZ + dz, WX + 7, 17, WZ + dz, 0.8, P.steelD);
+                v.box(WX - 15, 0, WZ + dz - 2, WX - 11, 1, WZ + dz + 2, P.steelD);
+                v.box(WX + 11, 0, WZ + dz - 2, WX + 15, 1, WZ + dz + 2, P.steelD);
+            }
+            v.cylinderZ(WX, HUB_Y, WZ - 7, WZ + 7, 1.6, P.steelD); // 축
+            // 탑승 플랫폼 + 계단
+            v.box(WX - 5, 1, WZ + 8, WX + 5, 2, WZ + 15, P.wood);
+            v.box(WX - 5, 1, WZ + 16, WX + 5, 1, WZ + 18, P.woodD);
+            v.box(WX - 5, 3, WZ + 8, WX - 5, 4, WZ + 15, P.fence);
+            v.box(WX + 5, 3, WZ + 8, WX + 5, 4, WZ + 15, P.fence);
+        }
+
+        // ---------- 회전목마 (기단/지붕은 정적, 플랫폼은 회전) ----------
+        const CX = 28, CZ = -8;
+        function carouselStatic() {
+            v.cylinderY(CX, 0, 1, CZ, 15, P.steelD);
+            v.ringY(CX, 1, CZ, 15, 1, P.gold);
+            for (let i = 0; i <= 6; i++) { // 줄무늬 원뿔 지붕
+                v.cylinderY(CX, 14 + i, 14 + i, CZ, 14 - i * 2, i % 2 ? P.cream : P.red);
+            }
+            v.ringY(CX, 13, CZ, 14, 0.8, P.gold); // 지붕 테두리 장식
+            for (let a = 0; a < 16; a++) {
+                const ang = a * Math.PI / 8;
+                v.add(CX + Math.round(Math.cos(ang) * 14), 12, CZ + Math.round(Math.sin(ang) * 14), a % 2 ? P.gold : P.rim);
+            }
+            v.sphere(CX, 22, CZ, 1.6, P.gold); // 꼭대기 장식
+            v.add(CX, 24, CZ, P.red);
+        }
+
+        // ---------- 매표소 ----------
+        function ticketBooth() {
+            const bx = 14, bz = 34;
+            v.box(bx - 4, 1, bz - 3, bx + 4, 8, bz + 3, P.cream);
+            for (let x = bx - 4; x <= bx + 4; x += 2) v.box(x, 1, bz - 3, x, 8, bz - 3, P.red); // 세로 줄무늬
+            v.box(bx - 3, 3, bz - 4, bx + 3, 6, bz - 3, 0x2a2438); // 창구
+            v.box(bx - 3, 3, bz - 4, bx + 3, 3, bz - 3, P.wood);
+            v.box(bx - 5, 9, bz - 5, bx + 5, 9, bz + 4, P.red); // 차양
+            for (let x = bx - 5; x <= bx + 5; x += 2) v.add(x, 8, bz - 5, P.cream);
+            v.box(bx - 2, 10, bz - 1, bx + 2, 12, bz + 1, P.gold); // 간판
+            v.add(bx, 13, bz, P.rim);
+        }
+
+        // ---------- 입구 게이트 ----------
+        function entranceGate() {
+            for (const gx of [-10, 10]) {
+                v.box(gx - 1, 0, 43, gx + 1, 14, 45, P.steel);
+                v.box(gx - 2, 14, 42, gx + 2, 15, 46, P.steelD);
+            }
+            v.box(-9, 15, 43, 9, 18, 45, P.rim); // 아치 간판
+            for (let x = -8; x <= 8; x += 2) v.add(x, 16, 42, x % 4 ? P.gold : P.cream);
+            v.add(0, 19, 44, P.gold); v.add(-1, 19, 44, P.gold); v.add(1, 19, 44, P.gold);
+        }
+
+        // ---------- 풍선 수레 ----------
+        function balloonCart() {
+            const bx = -14, bz = 28;
+            v.box(bx - 3, 2, bz - 2, bx + 3, 4, bz + 2, P.red);
+            v.box(bx - 3, 5, bz - 2, bx + 3, 5, bz + 2, P.cream);
+            v.torusZ(bx - 2, 1, bz + 2, 1.4, 0.5, 0x222222);
+            v.torusZ(bx + 2, 1, bz + 2, 1.4, 0.5, 0x222222);
+            v.line(bx, 5, bz, bx, 9, bz, 0.4, P.wood);
+            const cols = [0xff5c8a, 0xffc94d, 0x5cd6ff, 0x9aff7a, 0xc08aff];
+            const spots = [[-2, 11, 0], [0, 13, -1], [2, 11, 1], [-1, 12, 2], [1, 14, 0]];
+            spots.forEach(([dx, dy, dz], i) => {
+                v.ellipsoid(bx + dx, dy, bz + dz, 1, 1.4, 1, cols[i]);
+                v.line(bx + dx, dy - 2, bz + dz, bx, 6, bz, 0.4, 0xcccccc);
+            });
+        }
+
+        // ---------- 전구 스트링: 기둥(정적) + 전선(정적) / 전구는 별도 메쉬 ----------
+        const bulbGroup = new THREE.Group();
+        scene.add(bulbGroup);
+        const bulbs = [];
+        const bulbGeo = new THREE.SphereGeometry(0.55, 8, 8);
+        const bulbColors = [0xffd86b, 0xff6bb5, 0x6bd8ff, 0xb08aff];
+        function lampPole(x, z) {
+            v.box(x, 0, z, x, 13, z, P.pole);
+            v.box(x - 1, 0, z - 1, x + 1, 0, z + 1, P.steelD);
+            v.add(x, 14, z, P.gold);
+        }
+        function lightString(x1, z1, x2, z2) {
+            const dist = Math.hypot(x2 - x1, z2 - z1);
+            const wireN = Math.ceil(dist * 1.6);
+            for (let i = 0; i <= wireN; i++) { // 전선 (복셀)
+                const q = i / wireN;
+                v.add(x1 + (x2 - x1) * q, 13 - Math.sin(Math.PI * q) * 2.5, z1 + (z2 - z1) * q, P.wire);
+            }
+            const n = Math.max(6, Math.round(dist / 3.2));
+            for (let i = 1; i < n; i++) { // 전구 (반짝임 메쉬)
+                const q = i / n;
+                const mat = new THREE.MeshStandardMaterial({
+                    color: 0x332a20, emissive: bulbColors[i % 4], emissiveIntensity: 1.0,
+                    roughness: 0.4, metalness: 0.0,
+                });
+                const m = new THREE.Mesh(bulbGeo, mat);
+                m.position.set(x1 + (x2 - x1) * q, 12.1 - Math.sin(Math.PI * q) * 2.5, z1 + (z2 - z1) * q);
+                m.userData.phase = rng() * Math.PI * 2;
+                bulbGroup.add(m);
+                bulbs.push(m);
+            }
+        }
+
+        // ---------- 나무 / 울타리 / 벤치 ----------
+        function tree(x, z, s) {
+            v.box(x, 0, z, x + 1, 3 + s, z + 1, P.trunk);
+            v.sphere(x, 5 + s, z, 3 + s, P.leaf);
+            v.sphere(x - 1, 6 + s, z + 1, 2 + s * 0.6, P.leafL);
+        }
+        function fenceRun(x1, z1, x2, z2) {
+            const dist = Math.hypot(x2 - x1, z2 - z1);
+            const n = Math.max(1, Math.round(dist / 4));
+            for (let i = 0; i <= n; i++) {
+                const q = i / n;
+                v.box(Math.round(x1 + (x2 - x1) * q), 1, Math.round(z1 + (z2 - z1) * q),
+                      Math.round(x1 + (x2 - x1) * q), 3, Math.round(z1 + (z2 - z1) * q), P.fence);
+            }
+            v.line(x1, 3, z1, x2, 3, z2, 0.4, P.steelD);
+        }
+        function bench(x, z) {
+            v.box(x - 3, 2, z, x + 3, 2, z + 1, P.wood);
+            v.box(x - 3, 3, z + 1, x + 3, 4, z + 1, P.woodD);
+            v.box(x - 2, 0, z, x - 2, 1, z + 1, P.steelD);
+            v.box(x + 2, 0, z, x + 2, 1, z + 1, P.steelD);
+        }
+
+        // ---------- 하늘: 달 + 별 + 원경 언덕 ----------
+        function skyDeco() {
+            v.sphere(50, 90, -51, 7, P.moon);
+            v.sphere(46, 93, -48, 2.6, 0xd8d0e8);
+            v.add(53, 87, -46, 0xd8d0e8);
+            for (let i = 0; i < 90; i++) {
+                v.add(-66 + rng() * 132, 58 + rng() * 46, -60 + rng() * 14, P.star);
+            }
+            for (let mx = -66; mx <= 66; mx += 13) { // 밤 언덕 능선
+                const peak = 16 + rng() * 18;
+                const bz = -56 + rng() * 3;
+                for (let y = -1; y < peak; y++) {
+                    const w = Math.max(1, Math.floor((peak - y) * 0.55));
+                    v.box(Math.max(-68, mx - w), y, bz - 2, Math.min(68, mx + w), y, bz + 2,
+                        y > peak * 0.6 ? P.hillTop : P.hill);
+                }
+            }
+        }
+
+        ground();
+        wheelSupport();
+        carouselStatic();
+        ticketBooth();
+        entranceGate();
+        balloonCart();
+        lampPole(-16, 40); lampPole(16, 40); lampPole(24, 16); lampPole(-24, 10);
+        lightString(-16, 40, 16, 40);
+        lightString(16, 40, 24, 16);
+        lightString(-16, 40, -24, 10);
+        lightString(-24, 10, 24, 16);
+        tree(-52, 30, 2); tree(50, 28, 1); tree(56, -30, 2); tree(-56, -34, 1);
+        tree(-46, 46, 0); tree(44, 44, 1); tree(60, 4, 0);
+        fenceRun(-14, 44, -30, 36); fenceRun(14, 44, 32, 38);
+        bench(-8, 14); bench(8, 14);
+        skyDeco();
+
+        const voxOpts = { size: 0.95, roughness: 0.88, metalness: 0.03 };
+        scene.add(buildVoxelMesh(THREE, v, voxOpts));
+
+        // ---------- 대관람차 바퀴 (회전 그룹) ----------
+        const wheelGroup = new THREE.Group();
+        wheelGroup.position.set(WX, HUB_Y, WZ);
+        scene.add(wheelGroup);
+        const wb = new VoxelBuilder();
+        wb.torusZ(0, 0, 0, WHEEL_R, 1.4, P.rim);
+        wb.torusZ(0, 0, 0, 7, 0.9, P.hub);
+        for (let i = 0; i < 8; i++) {
+            const a = i * Math.PI / 4;
+            wb.line(0, 0, 0, Math.cos(a) * (WHEEL_R - 1), Math.sin(a) * (WHEEL_R - 1), 0, 0.7, P.spoke);
+        }
+        wb.sphere(0, 0, 0, 2.4, P.hub);
+        wheelGroup.add(buildVoxelMesh(THREE, wb, voxOpts));
+
+        // ---------- 곤돌라 8대 (항상 수직을 유지하며 궤도 회전) ----------
+        const gondolaColors = [0xff5c8a, 0xffc94d, 0x5cd6ff, 0x9aff7a, 0xc08aff, 0xff8a3c, 0x7ae8c8, 0xff6b6b];
+        const gondolas = [];
+        for (let i = 0; i < 8; i++) {
+            const gb = new VoxelBuilder();
+            gb.line(0, 0, 0, 0, -2, 0, 0.4, P.steelD); // 걸이
+            gb.box(-3, -3, -2, 3, -3, 2, P.steelD);     // 지붕
+            gb.box(-2, -6, -2, 2, -4, 2, gondolaColors[i]); // 캐빈
+            gb.box(-2, -5, -3, 2, -5, 3, 0x2a2438);     // 창문 띠
+            const g = new THREE.Group();
+            g.add(buildVoxelMesh(THREE, gb, voxOpts));
+            scene.add(g);
+            gondolas.push(g);
+        }
+
+        // ---------- 회전목마 플랫폼 + 목마 (회전 그룹) ----------
+        const carouselGroup = new THREE.Group();
+        carouselGroup.position.set(CX, 0, CZ);
+        scene.add(carouselGroup);
+        const pb = new VoxelBuilder();
+        pb.cylinderY(0, 2, 3, 0, 12, P.wood);
+        pb.ringY(0, 3, 0, 12, 0.8, P.gold);
+        pb.cylinderY(0, 3, 13, 0, 1.8, P.red); // 중심 기둥 (거울 장식)
+        for (let y = 4; y <= 12; y += 2) pb.ringY(0, y, 0, 2, 0.4, P.gold);
+        carouselGroup.add(buildVoxelMesh(THREE, pb, voxOpts));
+
+        function horseBuilder(body, mane) {
+            const b = new VoxelBuilder();
+            b.line(0, 3, 0, 0, 13, 0, 0.5, P.gold);           // 봉
+            b.ellipsoid(0, 7, 0, 3, 1.8, 1.4, body);          // 몸통
+            b.line(2, 8, 0, 4, 10, 0, 1, body);               // 목
+            b.ellipsoid(4, 11, 0, 1.6, 1.1, 1, body);         // 머리
+            b.add(6, 11, 0, body); b.add(6, 10, 0, 0x333333); // 주둥이
+            b.line(2, 9, 0, 4, 12, 0, 0.5, mane);             // 갈기
+            b.line(-3, 7, 0, -5, 5, 0, 0.6, mane);            // 꼬리
+            b.line(2, 5, 1, 2, 4, 1, 0.4, body); b.line(2, 5, -1, 2, 4, -1, 0.4, body);
+            b.line(-2, 5, 1, -2, 4, 1, 0.4, body); b.line(-2, 5, -1, -2, 4, -1, 0.4, body);
+            b.box(-1, 9, -1, 1, 9, 1, P.red);                 // 안장
+            return b;
+        }
+        const horseA = horseBuilder(0xf5ede0, 0xff6bb5);
+        const horseB = horseBuilder(0xe8b8d0, 0x8ad8ff);
+        const horses = [];
+        for (let i = 0; i < 6; i++) {
+            const a = i * Math.PI / 3;
+            const h = new THREE.Group();
+            h.add(buildVoxelMesh(THREE, i % 2 ? horseB : horseA, voxOpts));
+            h.position.set(Math.cos(a) * 8.5, 0, Math.sin(a) * 8.5);
+            h.rotation.y = -a; // 진행 방향(접선)을 바라보게
+            h.userData.phase = i * 1.1;
+            carouselGroup.add(h);
+            horses.push(h);
+        }
+
+        // ---------- 떠오르는 풍선 (루프 애니메이션) ----------
+        const balloonGroup = new THREE.Group();
+        scene.add(balloonGroup);
+        const floatBalloons = [];
+        const balloonCols = [0xff5c8a, 0xffc94d, 0x5cd6ff, 0x9aff7a, 0xc08aff, 0xff8a3c, 0x7ae8c8];
+        for (let i = 0; i < 7; i++) {
+            const bb = new VoxelBuilder();
+            bb.ellipsoid(0, 0, 0, 2, 2.6, 2, balloonCols[i]);
+            bb.add(0, -3, 0, balloonCols[i]);
+            bb.line(0, -4, 0, 0, -8, 0, 0.4, 0xcccccc);
+            const m = buildVoxelMesh(THREE, bb, voxOpts);
+            m.userData = {
+                x: -50 + rng() * 100, z: -40 + rng() * 80,
+                speed: 2.2 + rng() * 2.2, sway: 2 + rng() * 3,
+                phase: rng() * Math.PI * 2, top: 62 + rng() * 22,
+            };
+            balloonGroup.add(m);
+            floatBalloons.push(m);
+        }
+
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+
+            // 대관람차: 바퀴 회전 + 곤돌라는 수직 유지하며 궤도 이동
+            const wheelAngle = t * 0.25;
+            wheelGroup.rotation.z = wheelAngle;
+            for (let i = 0; i < 8; i++) {
+                const a = wheelAngle + i * Math.PI / 4;
+                gondolas[i].position.set(
+                    WX + Math.cos(a) * (WHEEL_R - 1),
+                    HUB_Y + Math.sin(a) * (WHEEL_R - 1),
+                    WZ);
+                gondolas[i].rotation.z = Math.sin(t * 1.4 + i) * 0.07; // 살짝 흔들림
+            }
+
+            // 회전목마: 그룹 회전 + 목마 상하 갤럽
+            carouselGroup.rotation.y = t * 0.55;
+            for (const h of horses) h.position.y = Math.sin(t * 2.4 + h.userData.phase) * 0.9;
+
+            // 떠오르는 풍선
+            for (const b of floatBalloons) {
+                const u = b.userData;
+                const cycle = (t * u.speed / u.top + u.phase) % 1;
+                b.position.set(
+                    u.x + Math.sin(t * 0.8 + u.phase) * u.sway,
+                    4 + u.top * cycle,
+                    u.z + Math.cos(t * 0.6 + u.phase) * u.sway * 0.6);
+            }
+
+            // 반짝이는 전구 (이미시브 맥동)
+            for (const m of bulbs) {
+                m.material.emissiveIntensity = 0.75 + (Math.sin(t * 3.2 + m.userData.phase) * 0.5 + 0.5) * 1.1;
+            }
+            carouselGlow.intensity = 1.6 + Math.sin(t * 2.1) * 0.35;
+            wheelGlow.intensity = 1.4 + Math.sin(t * 1.6 + 1.2) * 0.35;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

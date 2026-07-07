@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 산악 증기기관차</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(180deg, #bfe3f5 0%, #d8ecd8 55%, #8fb573 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 45%, rgba(20, 40, 30, 0.35) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #2e4d63; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #d64535;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(214, 69, 53, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #f2c14e; box-shadow: 0 0 24px rgba(242, 193, 78, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #a8c8d8; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(18, 36, 30, 0.58);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(220, 240, 220, 0.25);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.4); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #ffd280; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #ff8b6e; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #e2f0e2; line-height: 1.8;
+            background: rgba(0,0,0,0.28); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>산악 협곡에 순환 선로와 증기기관차를 놓고 있습니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">산악 증기기관차</div>
+        <div class="subtitle">순환 선로 · 목조 교각 · 바위산 터널 · 증기 연기</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xa9d3ec);
+        scene.fog = new THREE.FogExp2(0xbcd9ec, 0.0032);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(-78, 52, 96);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 12, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 260;
+        controls.minDistance = 25;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.7;
+
+        // 한낮의 산악 햇살
+        scene.add(new THREE.AmbientLight(0xcadcec, 0.55));
+        scene.add(new THREE.HemisphereLight(0xbfe3f5, 0x6a8a55, 0.75));
+        const sun = new THREE.DirectionalLight(0xfff2d8, 1.35);
+        sun.position.set(70, 110, 55);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(4096, 4096);
+        const d = 115;
+        sun.shadow.camera.left = -d; sun.shadow.camera.right = d;
+        sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
+        sun.shadow.camera.near = 10; sun.shadow.camera.far = 400;
+        sun.shadow.bias = -0.0005;
+        scene.add(sun);
+
+        const P = {
+            grass: 0x6fb054, grassD: 0x5c9a44, dirt: 0x8a6b45, dirtD: 0x6f5233,
+            rock: 0x8b8272, rockD: 0x6f675a, rockL: 0xa39a8a, crag: 0xb8b0a2,
+            water: 0x3f8fd8, waterL: 0x6cb8ea, riverBed: 0x5a4f3e,
+            ballast: 0x9a938a, ballastD: 0x847d72, tie: 0x5c422a, rail: 0x99a1a8,
+            plank: 0x8a6136, plankD: 0x73502b, wood: 0x7a5634, woodD: 0x5e401f,
+            pine: 0x3a7048, pineD: 0x2c5a38, trunk: 0x5a3c20,
+            stone: 0x9b9486, stoneD: 0x7d766a, snow: 0xeef4f8,
+            hut: 0x8a5c34, hutD: 0x6e4626, roofR: 0xb0402f, winWarm: 0xffd98c,
+            flower1: 0xe86a5c, flower2: 0xf2c14e, flower3: 0xf7f2e8,
+        };
+
+        const v = new VoxelBuilder();
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(19120801);
+
+        // ---------- 지형: 순환 선로 타원 + 협곡 + 바위산 ----------
+        const RX = 44, RZ = 34;              // 선로 타원 반지름
+        const MX = 48, MZ = 0, MR = 20;      // 바위산 중심/반지름
+
+        function baseH(x, z) {
+            return Math.floor(5 + Math.sin(x * 0.055) * 1.8 + Math.cos(z * 0.065) * 1.8 + Math.sin((x + z) * 0.028) * 1.4);
+        }
+        function canyonFactor(x) { // 협곡(강) x: -58 ~ -30
+            if (x <= -58 || x >= -30) return 0;
+            return Math.sin(((x + 58) / 28) * Math.PI);
+        }
+        function terrainH(x, z) {
+            const hb = baseH(x, z);
+            const f = canyonFactor(x);
+            if (f <= 0) return hb;
+            return Math.round(hb - (hb + 4) * Math.min(1, Math.pow(f, 0.55) * 1.12));
+        }
+        function inTunnel(x, y, z) { // 선로 궤도를 따라 산을 관통
+            const de = Math.abs(Math.hypot(x / RX, z / RZ) - 1);
+            if (y >= 10 && y <= 21 && de < 0.092) return true;
+            if (y >= 22 && y <= 24 && de < 0.058) return true;
+            return false;
+        }
+
+        function ground() {
+            for (let x = -68; x <= 68; x++)
+            for (let z = -58; z <= 58; z++) {
+                const f = canyonFactor(x);
+                const fh = terrainH(x, z);
+                if (fh <= -3) { // 협곡 바닥의 강
+                    v.add(x, -5, z, P.rockD);
+                    v.add(x, -4, z, P.riverBed);
+                    v.add(x, -3, z, (x * 3 + z) % 5 ? P.water : P.waterL);
+                    v.add(x, -2, z, (x + z * 2) % 4 ? P.water : P.waterL);
+                    continue;
+                }
+                const top = f > 0.06 ? ((fh + z) % 3 ? P.rock : P.rockD) : (rng() > 0.86 ? P.grassD : P.grass);
+                v.add(x, fh, z, top);
+                v.add(x, fh - 1, z, f > 0.06 ? P.rockD : P.dirt);
+                v.add(x, fh - 2, z, P.dirtD);
+                const depth = f > 0 ? 6 : 3; // 협곡 벽면은 깊게 메움
+                for (let y = fh - 3; y >= Math.max(-5, fh - depth); y--) v.add(x, y, z, y < 0 ? P.rockD : P.dirtD);
+                if (f <= 0 && rng() > 0.988 && Math.abs(Math.hypot(x / RX, z / RZ) - 1) > 0.14)
+                    v.add(x, fh + 1, z, [P.flower1, P.flower2, P.flower3][Math.floor(rng() * 3)]);
+            }
+        }
+
+        function mountain() {
+            for (let x = MX - MR; x <= MX + MR; x++)
+            for (let z = MZ - MR; z <= MZ + MR; z++) {
+                const dd = Math.hypot(x - MX, z - MZ);
+                if (dd >= MR) continue;
+                const mh = Math.round(8 + 40 * (1 - dd / MR) + Math.sin(x * 0.55) * 1.6 + Math.cos(z * 0.6) * 1.6);
+                const base = terrainH(x, z);
+                if (mh <= base) continue;
+                for (let y = Math.max(0, base - 1); y <= mh; y++) {
+                    if (inTunnel(x, y, z)) continue;
+                    const col = y > mh - 2 ? (mh > 42 ? P.snow : P.crag) : y > 26 ? P.rockL : y > 14 ? P.rock : P.rockD;
+                    v.add(x, y, z, col);
+                }
+            }
+        }
+
+        // ---------- 순환 선로 (자갈길/침목/레일 + 협곡 위 목조 데크) ----------
+        function trestleBent(px, pz, nx, nz) {
+            for (const side of [-1, 1]) {
+                const bx = Math.round(px + nx * 2.6 * side), bz = Math.round(pz + nz * 2.6 * side);
+                const base = Math.max(-4, terrainH(bx, bz));
+                v.box(bx, base, bz, bx, 9, bz, P.wood);
+                const ox = px + nx * 5 * side, oz = pz + nz * 5 * side;
+                const ob = Math.max(-4, terrainH(Math.round(ox), Math.round(oz)));
+                v.line(px + nx * 2.6 * side, 9, pz + nz * 2.6 * side, ox, ob, oz, 0.5, P.woodD);
+            }
+            v.line(px - nx * 3, 4, pz - nz * 3, px + nx * 3, 4, pz + nz * 3, 0.5, P.woodD);
+            v.line(px - nx * 3, 8, pz - nz * 3, px + nx * 3, 8, pz + nz * 3, 0.5, P.wood);
+            v.line(px - nx * 2.6, 8, pz - nz * 2.6, px + nx * 2.6, 1, pz + nz * 2.6, 0.5, P.woodD);
+            v.line(px + nx * 2.6, 8, pz + nz * 2.6, px - nx * 2.6, 1, pz - nz * 2.6, 0.5, P.woodD);
+        }
+
+        function trackLoop() {
+            const steps = 720;
+            const pts = [];
+            for (let i = 0; i < steps; i++) {
+                const th = (i / steps) * Math.PI * 2;
+                const c = Math.cos(th), s = Math.sin(th);
+                const px = RX * c, pz = RZ * s;
+                const nl = Math.hypot(c / RX, s / RZ);
+                pts.push({ i, px, pz, nx: (c / RX) / nl, nz: (s / RZ) / nl, bridge: canyonFactor(px) > 0.04 });
+            }
+            // 1차: 노반(자갈/성토) 또는 교량 데크
+            for (const p of pts) {
+                for (let o = -3; o <= 3; o++) {
+                    const gx = p.px + p.nx * o, gz = p.pz + p.nz * o;
+                    if (p.bridge) {
+                        v.add(gx, 11, gz, (o + p.i) % 2 ? P.plank : P.plankD);
+                        if (o === -2 || o === 0 || o === 2) v.add(gx, 10, gz, P.woodD);
+                    } else {
+                        v.add(gx, 11, gz, (Math.round(gx) + Math.round(gz)) % 2 ? P.ballast : P.ballastD);
+                        const th0 = terrainH(Math.round(gx), Math.round(gz));
+                        for (let y = Math.max(-2, th0 - 1); y <= 10; y++)
+                            v.add(gx, y, gz, y === 10 ? P.ballastD : (y % 2 ? P.dirt : P.dirtD));
+                    }
+                }
+            }
+            // 2차: 침목 + 레일 + 교각 + 난간
+            for (const p of pts) {
+                if (p.i % 6 === 0)
+                    v.line(p.px - p.nx * 2.7, 11, p.pz - p.nz * 2.7, p.px + p.nx * 2.7, 11, p.pz + p.nz * 2.7, 0.5, P.tie);
+                v.add(p.px + p.nx * 1.7, 12, p.pz + p.nz * 1.7, P.rail);
+                v.add(p.px - p.nx * 1.7, 12, p.pz - p.nz * 1.7, P.rail);
+                if (p.bridge) {
+                    if (p.i % 12 === 0) trestleBent(p.px, p.pz, p.nx, p.nz);
+                    if (p.i % 2 === 0) {
+                        v.add(p.px + p.nx * 3.4, 12, p.pz + p.nz * 3.4, P.wood);
+                        v.add(p.px - p.nx * 3.4, 12, p.pz - p.nz * 3.4, P.wood);
+                    }
+                }
+            }
+        }
+
+        function portal(th) { // 터널 입구 석조 포털
+            const c = Math.cos(th), s = Math.sin(th);
+            const px = RX * c, pz = RZ * s;
+            const nl = Math.hypot(c / RX, s / RZ);
+            const nx = (c / RX) / nl, nz = (s / RZ) / nl;
+            const tl = Math.hypot(RX * s, RZ * c);
+            const tx = -RX * s / tl, tz = RZ * c / tl;
+            for (let k = 0; k <= 1; k++)
+            for (let o = -6; o <= 6; o++)
+            for (let y = 9; y <= 24; y++) {
+                if (Math.abs(o) <= 3.6 && y <= 21) continue;
+                if (Math.abs(o) <= 2.2 && y <= 24) continue;
+                if (y > 22 && Math.abs(o) > 5) continue;
+                v.add(px + nx * o + tx * k, y, pz + nz * o + tz * k, k ? P.stoneD : P.stone);
+            }
+        }
+
+        // ---------- 소품 ----------
+        function pineTree(x, z, h) {
+            const gy = terrainH(x, z);
+            v.box(x, gy, z, x + 1, gy + 3, z + 1, P.trunk);
+            for (let i = 0; i < h; i++) {
+                const y = gy + 3 + i * 2;
+                const r = Math.max(1.4, (h - i) * 1.25);
+                v.cylinderY(x, y, y + 1, z, r, i % 2 ? P.pine : P.pineD);
+            }
+            v.add(x, gy + 3 + h * 2, z, P.pineD);
+        }
+
+        function station() {
+            v.box(-12, 5, 39, 12, 10, 45, P.stone);
+            v.box(-12, 10, 39, 12, 10, 39, P.stoneD);
+            v.box(-6, 11, 41, 6, 16, 45, P.hut);   // 역사
+            v.box(-7, 17, 40, 7, 17, 46, P.roofR);
+            v.box(-6, 18, 41, 6, 18, 45, P.roofR);
+            v.box(-4, 19, 42, 4, 19, 44, 0x8c3223);
+            v.box(-1, 11, 41, 1, 14, 41, P.woodD); // 문
+            v.box(-5, 12, 41, -3, 14, 41, P.winWarm);
+            v.box(3, 12, 41, 5, 14, 41, P.winWarm);
+            v.box(-3, 15, 40, 3, 15, 40, 0xf2e8cf); // 간판
+            v.box(8, 11, 42, 10, 11, 43, P.wood);   // 벤치
+            v.box(-10, 11, 42, -8, 11, 43, P.wood);
+            for (const lx of [-11, 11]) {
+                v.box(lx, 11, 40, lx, 15, 40, 0x3a3f45);
+                v.add(lx, 16, 40, P.winWarm);
+            }
+        }
+
+        function waterTower() {
+            const cx = -22, cz = 41;
+            for (const [lx, lz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]])
+                v.box(cx + lx, terrainH(cx + lx, cz + lz), cz + lz, cx + lx, 14, cz + lz, P.woodD);
+            v.box(cx - 3, 14, cz - 3, cx + 3, 15, cz + 3, P.wood);
+            v.cylinderY(cx, 16, 23, cz, 4, P.hut);
+            v.ringY(cx, 17, cz, 4, 0.6, P.woodD);
+            v.ringY(cx, 22, cz, 4, 0.6, P.woodD);
+            v.cylinderY(cx, 24, 24, cz, 4.5, P.hutD);
+            v.cylinderY(cx, 25, 25, cz, 3, P.hutD);
+            v.cylinderY(cx, 26, 26, cz, 1.5, P.hutD);
+            v.line(cx, 18, cz - 4, cx, 15, cz - 8, 0.6, 0x4a4f55); // 급수관
+        }
+
+        function signalPost() {
+            const gy = terrainH(20, 38);
+            v.box(20, gy, 38, 20, 16, 38, 0x3a3f45);
+            v.box(20, 14, 34, 20, 14, 37, 0xe8e0d0);
+            v.add(20, 14, 34, 0xd64535);
+            v.add(20, 16, 37, 0x3fd35f);
+        }
+
+        function ridge() { // 원경 능선 (협곡 물줄기 자리는 비움)
+            for (let mx = -66; mx <= 66; mx += 13) {
+                if (mx > -60 && mx < -26) continue;
+                const peak = 20 + rng() * 16;
+                const bz = -55 + Math.floor(rng() * 3);
+                for (let y = 0; y < peak; y++) {
+                    const w = Math.max(1, Math.floor((peak - y) * 0.55));
+                    v.box(Math.max(-69, mx - w), y, bz - 2, Math.min(69, mx + w), y, bz + 2,
+                        y > peak * 0.7 ? P.snow : 0x87a0b5);
+                }
+            }
+        }
+
+        ground();
+        mountain();
+        trackLoop();
+        portal(0.36);
+        portal(-0.36);
+        station();
+        waterTower();
+        signalPost();
+        ridge();
+        for (const [tx, tz, th] of [
+            [-6, -4, 5], [10, 6, 6], [-16, 10, 5], [4, -16, 6], [-10, -22, 5], [18, -12, 4],
+            [-24, -48, 6], [12, -48, 7], [24, -44, 5], [-63, -40, 5], [-62, 26, 5], [-62, 8, 5],
+            [58, -34, 5], [60, 30, 6], [36, 46, 5], [-30, 46, 6], [-14, 46, 4], [-26, -16, 5],
+        ]) pineTree(tx, tz, th);
+        v.sphere(-20, terrainH(-20, 18), 18, 2.2, P.rock);   // 바위들
+        v.sphere(26, terrainH(26, -38), -38, 1.8, P.rockD);
+        v.sphere(-27, terrainH(-27, -14) - 1, -14, 2.5, P.rockD);
+
+        scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.88, metalness: 0.03 }));
+
+        // ---------- 증기기관차 + 객차 2량 (THREE.Group 궤도 주행) ----------
+        function buildLoco() {
+            const b = new VoxelBuilder();
+            const C = { body: 0x22282e, dark: 0x14171b, red: 0xa8352b, redD: 0x7e241d, gold: 0xd9a441, glass: 0xffe08a, wheel: 0x101215 };
+            b.box(-10, 3, -3, 11, 4, 3, C.dark);              // 차대
+            b.box(12, 3, -3, 12, 4, 3, C.red);
+            for (let i = 0; i < 4; i++) b.box(12 + i, 1, -3 + i, 12 + i, 4 - i, 3 - i, C.redD); // 카우캐처
+            b.ellipsoid(3, 7, 0, 7, 3, 3, C.body);            // 보일러
+            b.sphere(10, 7, 0, 2.6, C.dark);                  // 스모크박스
+            b.box(11, 8, -1, 11, 10, 1, C.gold);              // 헤드램프
+            b.add(12, 9, 0, 0xfff6c8);
+            b.cylinderY(8, 10, 13, 0, 1.2, C.dark);           // 굴뚝
+            b.cylinderY(8, 13, 13, 0, 1.9, C.dark);
+            b.sphere(1, 10, 0, 1.8, C.gold);                  // 증기돔
+            b.box(-10, 4, -4, -3, 10, 4, C.red);              // 캡
+            b.box(-8, 6, -4, -5, 8, -4, C.glass);
+            b.box(-8, 6, 4, -5, 8, 4, C.glass);
+            b.box(-10, 6, -2, -10, 8, 2, C.glass);
+            b.box(-11, 10, -5, -2, 11, 5, C.dark);            // 캡 지붕
+            for (const s of [-4, 4]) {                        // 동륜 + 앞바퀴 + 사이드로드
+                b.torusZ(-6, 3, s, 2, 0.9, C.wheel);
+                b.torusZ(-1, 3, s, 2, 0.9, C.wheel);
+                b.torusZ(4, 3, s, 2, 0.9, C.wheel);
+                b.torusZ(9, 2, s, 1.2, 0.7, C.wheel);
+                b.add(-6, 3, s, C.gold); b.add(-1, 3, s, C.gold); b.add(4, 3, s, C.gold);
+                b.line(-6, 2, s > 0 ? 5 : -5, 4, 2, s > 0 ? 5 : -5, 0.5, 0x9aa2ad);
+            }
+            return b;
+        }
+        function buildCoach(bodyColor) {
+            const b = new VoxelBuilder();
+            b.box(-8, 3, -3, 8, 4, 3, 0x14171b);
+            b.box(-8, 4, -4, 8, 10, 4, bodyColor);
+            b.box(-8, 9, -4, 8, 9, 4, 0xe8d9a8);              // 크림색 띠
+            for (let wx = -6; wx <= 5; wx += 4) {
+                b.box(wx, 6, -4, wx + 1, 8, -4, 0xffe8b0);
+                b.box(wx, 6, 4, wx + 1, 8, 4, 0xffe8b0);
+            }
+            b.box(-9, 10, -5, 9, 11, 5, 0x30353b);
+            for (const s of [-4, 4]) {
+                b.torusZ(-5, 2, s, 1.4, 0.7, 0x101215);
+                b.torusZ(5, 2, s, 1.4, 0.7, 0x101215);
+            }
+            return b;
+        }
+
+        const trainGroup = new THREE.Group();
+        scene.add(trainGroup);
+        const carOpts = { size: 0.95, roughness: 0.55, metalness: 0.22 };
+        const locoG = new THREE.Group();
+        locoG.add(buildVoxelMesh(THREE, buildLoco(), carOpts));
+        const firebox = new THREE.PointLight(0xff9a45, 1.3, 26, 2); // 화실 불빛
+        firebox.position.set(-6, 5, 0);
+        locoG.add(firebox);
+        const coach1 = new THREE.Group();
+        coach1.add(buildVoxelMesh(THREE, buildCoach(0x9c4034), carOpts));
+        const coach2 = new THREE.Group();
+        coach2.add(buildVoxelMesh(THREE, buildCoach(0x3e6b52), carOpts));
+        for (const g of [locoG, coach1, coach2]) { g.scale.setScalar(0.75); trainGroup.add(g); }
+
+        // 굴뚝 증기 파티클
+        const smokeGroup = new THREE.Group();
+        scene.add(smokeGroup);
+        const puffGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+        const puffs = [];
+        for (let i = 0; i < 24; i++) {
+            const m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color: 0xf2f2f0, transparent: true, opacity: 0 }));
+            m.userData = { phase: i / 24, prev: 2, ox: RX, oz: 0, drift: rng() * Math.PI * 2 };
+            smokeGroup.add(m);
+            puffs.push(m);
+        }
+
+        // 떠가는 구름
+        const cloudGroup = new THREE.Group();
+        scene.add(cloudGroup);
+        const clouds = [];
+        function makeCloud(cx, cy, cz, sc) {
+            const g = new THREE.Group();
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.82 });
+            for (const [x, y, z, w, h, dd] of [[0, 0, 0, 11, 3.2, 6], [-6, -0.8, 1, 7, 2.4, 5], [6, -0.6, -1, 8, 2.6, 5], [1, 2, 0.5, 6, 2.2, 4]]) {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, dd), mat);
+                m.position.set(x, y, z);
+                g.add(m);
+            }
+            g.position.set(cx, cy, cz);
+            g.scale.setScalar(sc);
+            g.userData.speed = 1.1 + sc;
+            cloudGroup.add(g);
+            clouds.push(g);
+        }
+        makeCloud(-40, 62, -30, 1.1); makeCloud(10, 70, -12, 1.4);
+        makeCloud(50, 64, 18, 0.9); makeCloud(-15, 74, 28, 1.2);
+
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        // ---------- 애니메이션 ----------
+        const clock = new THREE.Clock();
+        let trainTheta = Math.PI * 0.6;
+        function ellipseSpeed(th) { return Math.hypot(RX * Math.sin(th), RZ * Math.cos(th)); }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(0.05, clock.getDelta());
+            const t = clock.elapsedTime;
+
+            trainTheta += dt * 10 / ellipseSpeed(trainTheta); // 약 10유닛/초 등속 주행
+            if (trainTheta > Math.PI * 2) trainTheta -= Math.PI * 2;
+
+            function placeCar(g, th, phase) {
+                g.position.set(RX * Math.cos(th), 12.6 + Math.sin(t * 8 + phase) * 0.05, RZ * Math.sin(th));
+                g.rotation.y = Math.atan2(-RZ * Math.cos(th), -RX * Math.sin(th));
+                g.rotation.z = Math.sin(t * 6.3 + phase * 2.1) * 0.015;
+                return g.rotation.y;
+            }
+            const th0 = trainTheta;
+            const th1 = th0 - 16.2 / ellipseSpeed(th0);
+            const th2 = th1 - 14.6 / ellipseSpeed(th1);
+            const phi0 = placeCar(locoG, th0, 0);
+            placeCar(coach1, th1, 1.7);
+            placeCar(coach2, th2, 3.1);
+
+            // 굴뚝 증기
+            const chX = locoG.position.x + Math.cos(phi0) * 6;
+            const chZ = locoG.position.z - Math.sin(phi0) * 6;
+            for (const p of puffs) {
+                const u = p.userData;
+                const cyc = (t * 0.5 + u.phase) % 1;
+                if (cyc < u.prev) { u.ox = chX; u.oz = chZ; }
+                u.prev = cyc;
+                p.position.set(
+                    u.ox + Math.sin(t * 0.8 + u.drift) * cyc * 3 + cyc * 2,
+                    23.2 + cyc * 15,
+                    u.oz + Math.cos(t * 0.7 + u.drift) * cyc * 3);
+                p.scale.setScalar(0.7 + cyc * 2.6);
+                p.material.opacity = cyc < 0.08 ? (cyc / 0.08) * 0.6 : (1 - cyc) * 0.62;
+                p.rotation.y = cyc * 2 + u.drift;
+            }
+
+            for (const c of clouds) {
+                c.position.x += dt * c.userData.speed;
+                if (c.position.x > 95) c.position.x = -95;
+            }
+
+            firebox.intensity = 1.1 + Math.sin(t * 6.2) * 0.25 + Math.sin(t * 13.1) * 0.12;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

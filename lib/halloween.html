@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 할로윈 유령 마을</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(#120a24 0%, #2a1440 55%, #4a2050 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 40%, rgba(8, 3, 18, 0.55) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #120a24; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #ff8a1e;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(255, 138, 30, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #9b6bff; box-shadow: 0 0 24px rgba(155, 107, 255, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #b99ad8; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(18, 8, 34, 0.62);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(255, 190, 120, 0.22);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.42); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #ff8a1e; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #b98aff; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #e8dcf5; line-height: 1.8;
+            background: rgba(0,0,0,0.26); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>보름달 아래 유령의 집과 호박밭을 깎고 있습니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">할로윈 유령 마을</div>
+        <div class="subtitle">보름달 · 떠도는 유령 · 박쥐 떼 · 잭오랜턴</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x160c28);
+        scene.fog = new THREE.FogExp2(0x1b1030, 0.0030);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(-66, 44, 94);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.25;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 18, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 250;
+        controls.minDistance = 24;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.7;
+
+        // 보름달빛 + 잭오랜턴 · 창문의 불빛
+        scene.add(new THREE.AmbientLight(0x3a2a55, 0.6));
+        scene.add(new THREE.HemisphereLight(0x6a5a9e, 0x140c22, 0.6));
+        const moonLight = new THREE.DirectionalLight(0xcfd4ff, 1.05);
+        moonLight.position.set(-70, 105, -30);
+        moonLight.castShadow = true;
+        moonLight.shadow.mapSize.set(4096, 4096);
+        const d = 120;
+        moonLight.shadow.camera.left = -d; moonLight.shadow.camera.right = d;
+        moonLight.shadow.camera.top = d; moonLight.shadow.camera.bottom = -d;
+        moonLight.shadow.camera.near = 10; moonLight.shadow.camera.far = 400;
+        moonLight.shadow.bias = -0.0005;
+        scene.add(moonLight);
+        const pumpkinLight = new THREE.PointLight(0xff9a3c, 2.2, 60, 2);
+        pumpkinLight.position.set(12, 8, 28);
+        scene.add(pumpkinLight);
+        const windowLight = new THREE.PointLight(0xffb347, 1.6, 55, 2);
+        windowLight.position.set(-2, 24, -6);
+        scene.add(windowLight);
+
+        const P = {
+            grass: 0x2c3b2a, grassD: 0x1f2c20, grassP: 0x33304a, dirt: 0x4a3a28, dirtD: 0x3a2c1e,
+            wood: 0x3a2a45, woodD: 0x241a30, woodT: 0x453252, roof: 0x1a1226, roofD: 0x120b1c,
+            door: 0x2a1a10, winGlow: 0xffb347, porch: 0x332440,
+            pumpkin: 0xff8a1e, pumpkinD: 0xd96a10, stem: 0x4a6b2a, face: 0xffd23f,
+            grave: 0x8a8f9a, graveD: 0x5e6370, tree: 0x1d1410, fence: 0x241a2e,
+            moon: 0xfff3c8, moonD: 0xe8d9a8, star: 0xfff6e0, ridge: 0x241736, ghost: 0xdfe8ff,
+        };
+
+        const v = new VoxelBuilder();
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(20261031);
+
+        // 언덕이 솟은 지형 높이
+        function groundH(x, z) {
+            let h = Math.floor(Math.sin(x * 0.05) * 1.5 + Math.cos(z * 0.06) * 1.5);
+            const dist = Math.hypot(x, z + 16);
+            if (dist < 30) {
+                const t = Math.cos(Math.min(dist / 30, 1) * Math.PI / 2);
+                h += Math.floor(15 * t * t);
+            }
+            return h;
+        }
+
+        function terrain() {
+            for (let x = -68; x <= 68; x++) {
+                for (let z = -58; z <= 58; z++) {
+                    const h = groundH(x, z);
+                    // 저택으로 이어지는 구불구불한 오솔길
+                    const px = -4 + Math.sin(z * 0.1) * 5;
+                    const onPath = z > -8 && Math.abs(x - px) < 2.2;
+                    let top = onPath ? (rng() > 0.8 ? P.dirtD : P.dirt)
+                        : (rng() > 0.86 ? P.grassD : P.grass);
+                    if (!onPath && rng() > 0.985) top = P.grassP; // 보랏빛 야생화
+                    v.add(x, h, z, top);
+                    // 언덕 옆면이 뚫리지 않도록 아래로 채움
+                    for (let y = h - 1; y >= h - 3; y--) v.add(x, y, z, P.grassD);
+                    if (h > 4) for (let y = h - 4; y >= 0; y -= 2) v.add(x, y, z, P.grassD);
+                }
+            }
+        }
+
+        function hauntedHouse() {
+            const bx1 = -12, bx2 = 4, bz1 = -26, bz2 = -10, y0 = 16, h = 14;
+            for (let y = y0; y <= y0 + h; y++) { // 널빤지 벽
+                const c = (y - y0) % 3 === 2 ? P.woodD : P.wood;
+                v.box(bx1, y, bz1, bx2, y, bz1 + 1, c);
+                v.box(bx1, y, bz2 - 1, bx2, y, bz2, c);
+                v.box(bx1, y, bz1, bx1 + 1, y, bz2, c);
+                v.box(bx2 - 1, y, bz1, bx2, y, bz2, c);
+            }
+            v.box(bx1, y0 + h, bz1, bx2, y0 + h, bz2, P.woodD); // 천장
+            for (let i = 0; i <= 8; i++) { // 박공지붕
+                const y = y0 + h + 1 + i;
+                const half = 10 - i * 1.35;
+                if (half < 0.5) break;
+                v.box(bx1 - 1, y, -18 - half, bx2 + 1, y, -18 + half, i % 2 ? P.roof : P.roofD);
+            }
+            // 대문 + 빛나는 창문들
+            v.box(-6, y0 + 1, bz2, -3, y0 + 6, bz2, P.door);
+            v.add(-4, y0 + 3, bz2, 0xb08a40);
+            v.box(-10, y0 + 4, bz2, -8, y0 + 7, bz2, P.winGlow);
+            v.box(0, y0 + 4, bz2, 2, y0 + 7, bz2, P.winGlow);
+            v.add(-9, y0 + 5, bz2, P.woodD); v.add(1, y0 + 5, bz2, P.woodD);
+            v.cylinderZ(-4.5, y0 + 11, bz2, bz2, 1.8, P.winGlow); // 둥근 다락창
+            v.box(-10, y0 + 4, bz1, -8, y0 + 7, bz1, P.winGlow);  // 뒷창
+            // 현관 포치 + 계단
+            v.box(-8, y0 - 1, -9, -1, y0 - 1, -6, P.porch);
+            v.box(-8, y0 - 1, -6, -8, y0 + 5, -6, P.woodD);
+            v.box(-1, y0 - 1, -6, -1, y0 + 5, -6, P.woodD);
+            v.box(-8, y0 + 6, -9, -1, y0 + 6, -5, P.roofD);
+            v.box(-7, y0 - 2, -5, -2, y0 - 2, -4, P.porch);
+            v.box(-7, y0 - 3, -3, -2, y0 - 3, -2, P.porch);
+            // 기울어진 탑
+            for (let y = y0; y <= 50; y++) {
+                const ox = Math.round((y - y0) * 0.16);
+                const c = y % 3 === 0 ? P.woodD : P.woodT;
+                v.box(5 + ox, y, -22, 13 + ox, y, -21, c);
+                v.box(5 + ox, y, -15, 13 + ox, y, -14, c);
+                v.box(5 + ox, y, -22, 6 + ox, y, -14, c);
+                v.box(12 + ox, y, -22, 13 + ox, y, -14, c);
+            }
+            for (const yb of [24, 36, 44]) { // 탑의 불 켜진 창
+                for (let y = yb; y <= yb + 3; y++) {
+                    const ox = Math.round((y - y0) * 0.16);
+                    v.box(8 + ox, y, -14, 10 + ox, y, -14, P.winGlow);
+                }
+            }
+            const capOx = Math.round((50 - y0) * 0.16);
+            v.box(4 + capOx, 50, -23, 14 + capOx, 50, -13, P.woodD); // 처마 돌림
+            for (let i = 0; i <= 8; i++) { // 뾰족한 고깔 지붕
+                const y = 51 + i;
+                const r = 6 - i * 0.72;
+                if (r < 0.4) break;
+                const ox = Math.round((y - y0) * 0.16);
+                v.cylinderY(9 + ox, y, y, -18, r, i % 2 ? P.roof : P.roofD);
+            }
+            v.add(9 + Math.round(42 * 0.16), 59, -18, P.winGlow); // 꼭대기 등불
+        }
+
+        // 잭오랜턴 (발광 얼굴은 +z 방향)
+        function pumpkin(x, z, r) {
+            const y0 = groundH(x, z) + 1;
+            const cy = y0 + r - 1;
+            v.ellipsoid(x, cy, z, r + 1, r, r + 1, P.pumpkin);
+            v.box(x - r - 1, cy - r + 1, z, x - r - 1, cy + r - 1, z, P.pumpkinD); // 골 무늬
+            v.box(x + r + 1, cy - r + 1, z, x + r + 1, cy + r - 1, z, P.pumpkinD);
+            v.line(x, cy + r, z, x - 1, cy + r + 2, z, 0.5, P.stem);
+            const zf = z + r; // 표면에 새긴 얼굴
+            v.add(x - 2, cy + 1, zf, P.face); v.add(x + 2, cy + 1, zf, P.face);
+            if (r >= 3) { v.add(x - 2, cy + 2, zf, P.face); v.add(x + 2, cy + 2, zf, P.face); }
+            v.box(x - 2, cy - 1, zf, x + 2, cy - 1, zf, P.face);
+            v.add(x - 1, cy - 2, zf, P.face); v.add(x + 1, cy - 2, zf, P.face);
+        }
+
+        function grave(x, z, type) {
+            const y = groundH(x, z);
+            if (type === 0) {
+                v.box(x - 1, y + 1, z, x + 1, y + 4, z, P.grave);
+                v.cylinderZ(x, y + 4, z, z, 1.6, P.grave);
+                v.add(x, y + 3, z, P.graveD);
+            } else if (type === 1) {
+                v.box(x, y + 1, z, x, y + 6, z, P.grave);
+                v.box(x - 1, y + 4, z, x + 1, y + 4, z, P.grave);
+            } else {
+                v.box(x - 1, y + 1, z, x + 1, y + 3, z, P.graveD);
+                v.add(x - 1, y + 4, z, P.graveD);
+            }
+        }
+
+        function fencePost(x, z) {
+            const y = groundH(x, z);
+            v.box(x, y + 1, z, x, y + 3, z, P.fence);
+            v.add(x, y + 4, z, P.graveD); // 철창 꼭지
+        }
+
+        function graveyard() {
+            grave(22, 2, 0); grave(28, 8, 1); grave(34, 0, 2);
+            grave(24, 14, 2); grave(32, 16, 0); grave(38, 8, 1);
+            for (let x = 18; x <= 42; x += 4) { fencePost(x, -4); fencePost(x, 20); }
+            for (let z = 0; z <= 16; z += 4) { fencePost(18, z); fencePost(42, z); }
+        }
+
+        function deadTree(x, z, s) {
+            const y0 = groundH(x, z);
+            v.line(x, y0, z, x + s * 0.4, y0 + s * 5, z - s * 0.5, 0.9, P.tree);
+            v.line(x + s * 0.2, y0 + s * 3, z, x - s * 2.5, y0 + s * 6.5, z + s, 0.6, P.tree);
+            v.line(x + s * 0.3, y0 + s * 4, z - s * 0.3, x + s * 3, y0 + s * 7, z - s * 1.5, 0.6, P.tree);
+            v.line(x + s * 0.4, y0 + s * 5, z - s * 0.5, x + s * 1.2, y0 + s * 8, z + s * 0.5, 0.5, P.tree);
+            v.line(x - s * 1.5, y0 + s * 5.5, z + s * 0.6, x - s * 3.2, y0 + s * 7.5, z + s * 1.2, 0.4, P.tree);
+            v.line(x + s * 2, y0 + s * 6, z - s, x + s * 3.6, y0 + s * 8.5, z - s * 1.6, 0.4, P.tree);
+        }
+
+        function skyDeco() {
+            v.sphere(-44, 86, -56, 10, P.moon); // 보름달
+            v.sphere(-47, 90, -48, 2, P.moonD);
+            v.sphere(-41, 83, -48, 1.6, P.moonD);
+            v.sphere(-40, 89, -49, 1.2, P.moonD);
+            for (let i = 0; i < 80; i++) { // 별
+                v.add(-70 + rng() * 140, 55 + rng() * 50, -60 + rng() * 18, P.star);
+            }
+            for (let mx = -70; mx <= 70; mx += 14) { // 원경 실루엣 능선
+                const peak = 20 + rng() * 20;
+                const bz = -55 + rng() * 4;
+                for (let y = 0; y < peak; y++) {
+                    const wdt = Math.max(1, Math.floor((peak - y) * 0.5));
+                    v.box(mx - wdt, y, bz - 2, mx + wdt, y, bz + 2, P.ridge);
+                }
+            }
+        }
+
+        terrain();
+        hauntedHouse();
+        graveyard();
+        pumpkin(10, 28, 3); pumpkin(16, 24, 2); pumpkin(6, 34, 2);
+        pumpkin(-16, 18, 4); pumpkin(-24, 40, 3); pumpkin(30, 30, 2);
+        deadTree(-36, -8, 1.3); deadTree(-48, 20, 1.1);
+        deadTree(42, -18, 1.2); deadTree(-24, 38, 0.9); deadTree(50, 34, 1.0);
+        skyDeco();
+
+        // 둥실 떠다니는 유령들 (사인 부유 + 투명도 숨쉬기)
+        function makeGhost() {
+            const gb = new VoxelBuilder();
+            gb.ellipsoid(0, 6, 0, 3, 4, 3, P.ghost);
+            gb.ellipsoid(0, 3, 0, 3, 3, 3, P.ghost);
+            for (let a = 0; a < 10; a++) { // 물결치는 치맛단
+                const rad = a / 10 * Math.PI * 2;
+                gb.add(Math.round(Math.cos(rad) * 2.6), a % 2, Math.round(Math.sin(rad) * 2.6), P.ghost);
+            }
+            gb.add(-1, 7, 2, 0x141024); gb.add(1, 7, 2, 0x141024); // 눈
+            gb.add(0, 5, 2, 0x141024); // 입
+            gb.line(-3, 5, 0, -5, 3, 1, 0.7, P.ghost); // 팔
+            gb.line(3, 5, 0, 5, 6, 1, 0.7, P.ghost);
+            const mesh = buildVoxelMesh(THREE, gb, { size: 0.95, roughness: 0.5, metalness: 0, cast: false, receive: false });
+            mesh.material.transparent = true;
+            mesh.material.opacity = 0.7;
+            mesh.material.depthWrite = false;
+            mesh.material.emissive.setHex(0x5a6fb8);
+            mesh.material.emissiveIntensity = 0.4;
+            return mesh;
+        }
+        const ghosts = [];
+        function spawnGhost(s, cx, cz, r, baseY, speed, phase) {
+            const mesh = makeGhost();
+            const g = new THREE.Group();
+            g.add(mesh);
+            g.scale.setScalar(s);
+            g.userData = { cx, cz, r, baseY, speed, phase, mat: mesh.material };
+            scene.add(g);
+            ghosts.push(g);
+        }
+        spawnGhost(1.0, 28, 8, 9, 12, 0.4, 0);     // 묘지를 맴도는 유령
+        spawnGhost(1.4, -2, -18, 20, 38, -0.22, 2.1); // 탑을 도는 큰 유령
+        spawnGhost(0.8, -22, 26, 8, 10, 0.55, 4.2); // 호박밭의 꼬마 유령
+
+        // 달 앞을 가로지르는 박쥐 떼
+        const batGroup = new THREE.Group();
+        scene.add(batGroup);
+        const batMat = new THREE.MeshBasicMaterial({ color: 0x120b20 });
+        const bats = [];
+        for (let i = 0; i < 8; i++) {
+            const bat = new THREE.Group();
+            bat.add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.0, 0.7), batMat));
+            const wingR = new THREE.BoxGeometry(2.6, 0.25, 1.3); wingR.translate(1.3, 0, 0);
+            const wingL = new THREE.BoxGeometry(2.6, 0.25, 1.3); wingL.translate(-1.3, 0, 0);
+            const wr = new THREE.Mesh(wingR, batMat); wr.position.x = 0.6;
+            const wl = new THREE.Mesh(wingL, batMat); wl.position.x = -0.6;
+            bat.add(wr); bat.add(wl);
+            bat.userData = {
+                phase: rng() * Math.PI * 2, speed: 0.28 + rng() * 0.14,
+                rx: 18 + rng() * 8, bob: rng() * Math.PI * 2, flap: 8 + rng() * 4, wr, wl,
+            };
+            batGroup.add(bat);
+            bats.push(bat);
+        }
+
+        scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.88, metalness: 0.03 }));
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+            for (const g of ghosts) { // 유령: 원 궤도 + 사인 부유 + 투명도
+                const u = g.userData;
+                const a = t * u.speed + u.phase;
+                g.position.set(
+                    u.cx + Math.cos(a) * u.r,
+                    u.baseY + Math.sin(t * 1.4 + u.phase * 3) * 2.4,
+                    u.cz + Math.sin(a) * u.r);
+                g.rotation.y = -a;
+                u.mat.opacity = 0.4 + (Math.sin(t * 0.8 + u.phase * 2) * 0.5 + 0.5) * 0.34;
+            }
+            for (const bat of bats) { // 박쥐 떼: 달 앞 8자 궤적 + 날갯짓
+                const u = bat.userData;
+                const a = t * u.speed + u.phase;
+                bat.position.set(
+                    -44 + Math.cos(a) * u.rx,
+                    84 + Math.sin(a * 2 + u.bob) * 5,
+                    -48 + Math.sin(a) * 7);
+                const flap = Math.sin(t * u.flap + u.phase) * 0.7;
+                u.wr.rotation.z = flap;
+                u.wl.rotation.z = -flap;
+            }
+            // 잭오랜턴 촛불 깜빡임 (가끔 훅 꺼질 듯 어두워짐)
+            pumpkinLight.intensity = 1.8 + Math.sin(t * 8.3) * 0.5 + Math.sin(t * 17.7) * 0.3
+                + (Math.sin(t * 3.1) > 0.92 ? -1.3 : 0);
+            windowLight.intensity = 1.5 + Math.sin(t * 5.1) * 0.25 + Math.sin(t * 11.3) * 0.12;
+            controls.target.y = 18 + Math.sin(t * 0.9) * 1.2;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

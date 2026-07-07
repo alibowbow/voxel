@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 해적선과 크라켄</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(180deg, #2a3a5e 0%, #3d5a7a 55%, #1d6e8a 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 40%, rgba(4, 10, 22, 0.5) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #1c2942; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #ffd166;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(255, 209, 102, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #7fd8e8; box-shadow: 0 0 24px rgba(127, 216, 232, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #9db4d6; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(10, 18, 36, 0.62);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(200, 230, 255, 0.2);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.42); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #ffd166; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #7fd8e8; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #dbe6f5; line-height: 1.8;
+            background: rgba(0,0,0,0.26); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>돛을 올리고 크라켄을 깨우는 중입니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">해적선과 크라켄</div>
+        <div class="subtitle">해골 깃발 · 크라켄 촉수 · 보물섬 · 폭풍 전야</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x2e4560);
+        scene.fog = new THREE.FogExp2(0x2e4560, 0.0038);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(-78, 44, 90);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.25;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 12, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 250;
+        controls.minDistance = 24;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.7;
+
+        // 폭풍 전야의 빛: 구름 틈 사이 낮은 태양 + 선미 랜턴 + 원경 번개
+        scene.add(new THREE.AmbientLight(0x6a7a9e, 0.55));
+        scene.add(new THREE.HemisphereLight(0x9ab0cc, 0x123a50, 0.65));
+        const sun = new THREE.DirectionalLight(0xffe0b0, 1.05);
+        sun.position.set(60, 90, 40);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(4096, 4096);
+        const d = 110;
+        sun.shadow.camera.left = -d; sun.shadow.camera.right = d;
+        sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
+        sun.shadow.camera.near = 10; sun.shadow.camera.far = 400;
+        sun.shadow.bias = -0.0005;
+        scene.add(sun);
+        const storm = new THREE.PointLight(0xbcd8ff, 0, 240, 1.6);
+        storm.position.set(-36, 62, -46);
+        scene.add(storm);
+
+        const P = {
+            seaDeep: 0x123f63, seaMid: 0x1a5578, seaHi: 0x2a7ba6, crest: 0x3f97bd, foam: 0xc8ecf4,
+            hull: 0x5c3a22, hullD: 0x462a15, hullTop: 0x6e4a2a, trim: 0xd9a441,
+            deck: 0x9a7248, deckD: 0x84613c, mast: 0x6e4a2a, mastD: 0x54361c, rope: 0x4a3a24,
+            sail: 0xe9e2cd, sailD: 0xcfc5a6, cannon: 0x24262b, dark: 0x141519,
+            gold: 0xffd166, glow: 0xffe8a8,
+            sand: 0xefd9a2, sandD: 0xd8bd7f, trunk: 0x8a6238, trunkD: 0x6e4a2a,
+            leaf: 0x2f9e5a, leafD: 0x1f7a42, coco: 0x5a3a1e,
+            kraken: 0x6a2f7a, krakenD: 0x521f60, krakenHi: 0x8a4a9c, sucker: 0xe0a8e0,
+            cloud: 0x46536b, cloudD: 0x333e52, rock: 0x2c3a50,
+        };
+
+        const v = new VoxelBuilder();
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(17180818);
+
+        // ── 정적 월드: 바다 ──────────────────────────────────────────
+        function ocean() {
+            for (let x = -68; x <= 68; x++) {
+                for (let z = -58; z <= 58; z++) {
+                    const w = Math.sin(x * 0.16 + z * 0.09) + Math.cos(z * 0.13 - x * 0.07) + Math.sin((x + z) * 0.05) * 0.6;
+                    const y = Math.max(1, Math.min(5, 2 + Math.round(w * 1.1)));
+                    let c = w > 1.6 ? P.crest : w > 0.6 ? P.seaHi : w > -0.7 ? P.seaMid : P.seaDeep;
+                    if (w > 1.9 && rng() > 0.45) c = P.foam;          // 물마루 포말
+                    else if (rng() > 0.993) c = P.foam;               // 흩날리는 물보라
+                    v.add(x, y, z, c);
+                    v.add(x, y - 1, z, P.seaMid);
+                    v.add(x, Math.max(0, y - 2), z, P.seaDeep);
+                }
+            }
+            v.ringY(-10, 3, 6, 13, 1.4, P.foam);                      // 배 주위 항적 거품
+        }
+
+        // ── 크라켄 촉수 (물 위로 솟은 2개) ───────────────────────────
+        function tentacle(bx, bz, h, phase, flip) {
+            const segs = 34;
+            for (let i = 0; i <= segs; i++) {
+                const u = i / segs;
+                const rr = Math.max(1.2, 5.2 * (1 - u) + 1.1);
+                const y = Math.max(Math.ceil(rr), Math.round(1 + Math.sin(u * Math.PI * 0.52) * h)); // 수면 위로 솟아 끝이 휘어짐
+                const sway = Math.sin(u * Math.PI * 1.15 + phase) * 6;
+                const x = bx + (sway + u * u * 9) * flip;
+                const z = bz + Math.cos(u * Math.PI * 0.85 + phase) * 4 - Math.cos(phase) * 4;
+                const col = u > 0.92 ? P.krakenHi : (i % 5 < 2 ? P.krakenD : P.kraken);
+                v.sphere(Math.round(x), Math.round(y), Math.round(z), rr, col);
+                if (i % 3 === 1 && u > 0.12 && u < 0.9) {             // 빨판
+                    v.add(Math.round(x - rr * flip), Math.round(y), Math.round(z), P.sucker);
+                    v.add(Math.round(x - rr * flip), Math.round(y + 1), Math.round(z + 1), P.sucker);
+                }
+            }
+            v.ringY(bx, 3, bz, 7, 1.6, P.foam);                       // 솟구친 자리의 거품
+            v.ringY(bx, 2, bz, 9, 1.2, P.seaHi);
+        }
+
+        // ── 보물섬: 모래언덕 + 야자수 + 보물상자 ─────────────────────
+        function island() {
+            const ix = 46, iz = -30;
+            for (let x = -16; x <= 16; x++) {
+                for (let z = -14; z <= 14; z++) {
+                    const dd = Math.hypot(x / 16, z / 14);
+                    if (dd > 1) continue;
+                    const h = Math.round((1 - dd * dd) * 7);
+                    for (let y = 0; y <= h; y++)
+                        v.add(ix + x, y, iz + z, y === h ? (rng() > 0.88 ? P.sandD : P.sand) : P.sandD);
+                }
+            }
+            palm(ix - 5, iz + 3, 6, 13, 1);
+            palm(ix + 5, iz - 5, 5, 10, -1);
+            chest(ix + 2, iz + 7, 4);
+        }
+
+        function palm(bx, bz, baseY, h, lean) {
+            for (let y = 0; y <= h; y++) {
+                const off = Math.round(Math.pow(y / h, 2) * 3) * lean;
+                v.box(bx + off, baseY + y, bz, bx + off + (y % 3 === 0 ? 1 : 0), baseY + y, bz, y % 2 ? P.trunk : P.trunkD);
+            }
+            const tx = bx + 3 * lean, ty = baseY + h;
+            for (let k = 0; k < 6; k++) {                             // 축 늘어진 잎 6장
+                const a = k * Math.PI / 3 + 0.4;
+                const dx = Math.cos(a), dz = Math.sin(a);
+                v.line(tx, ty, bz, tx + dx * 4, ty + 2, bz + dz * 4, 0.6, P.leaf);
+                v.line(tx + dx * 4, ty + 2, bz + dz * 4, tx + dx * 8, ty - 1, bz + dz * 8, 0.6, P.leafD);
+            }
+            v.sphere(tx + 1, ty, bz + 1, 1, P.coco);                  // 코코넛
+            v.sphere(tx - 1, ty - 1, bz - 1, 1, P.coco);
+        }
+
+        function chest(cx, cz, y) {
+            v.box(cx - 2, y, cz - 1, cx + 2, y + 2, cz + 1, P.hull);
+            v.box(cx - 2, y, cz - 1, cx - 2, y + 2, cz + 1, P.trim); // 금속 테
+            v.box(cx + 2, y, cz - 1, cx + 2, y + 2, cz + 1, P.trim);
+            v.box(cx - 2, y + 3, cz - 2, cx + 2, y + 4, cz - 2, P.hullD); // 열린 뚜껑
+            v.box(cx - 1, y + 2, cz - 1, cx + 1, y + 3, cz + 1, P.gold); // 금화 더미
+            v.add(cx, y + 4, cz, P.glow); v.add(cx - 3, y + 1, cz + 2, P.gold);
+            v.add(cx + 3, y, cz + 2, P.gold); v.add(cx + 1, y + 5, cz + 1, P.glow);
+        }
+
+        // ── 원경: 폭풍구름 + 암초 실루엣 ─────────────────────────────
+        function stormClouds() {
+            for (let k = 0; k < 6; k++) {
+                const cx = -50 + k * 20 + (rng() - 0.5) * 6;
+                const cy = 62 + rng() * 14;
+                const cz = -46 - rng() * 6;
+                const s0 = 6 + rng() * 2.5;
+                v.ellipsoid(Math.round(cx), Math.round(cy), Math.round(cz),
+                    Math.round(s0 * 1.4), Math.round(s0 * 0.55), Math.round(s0 * 0.7), P.cloudD);
+                v.ellipsoid(Math.round(cx - s0), Math.round(cy - 2), Math.round(cz + 2),
+                    Math.round(s0), Math.round(s0 * 0.45), Math.round(s0 * 0.55), P.cloud);
+                v.ellipsoid(Math.round(cx + s0 * 0.9), Math.round(cy + 2), Math.round(cz - 1),
+                    Math.round(s0 * 0.85), Math.round(s0 * 0.5), Math.round(s0 * 0.5), P.cloud);
+                v.ellipsoid(Math.round(cx + 2), Math.round(cy + s0 * 0.4), Math.round(cz),
+                    Math.round(s0 * 0.9), Math.round(s0 * 0.5), Math.round(s0 * 0.55), P.cloudD);
+            }
+        }
+
+        function rockSpire(bx, bz, h) {
+            for (let y = 0; y <= h; y++) {
+                const w = Math.max(1, Math.round((h - y) * 0.28 + Math.sin(y * 1.3) * 1.2));
+                v.box(bx - w, y, bz - Math.max(1, w - 1), bx + w, y, bz + Math.max(1, w - 1), P.rock);
+            }
+        }
+
+        // ── 해적선 (별도 빌더 → 흔들리는 THREE.Group) ────────────────
+        const s = new VoxelBuilder();
+        function hullHalf(x) {
+            if (x >= 0) { const u = x / 17; return Math.max(1, Math.round(5.4 * Math.sqrt(Math.max(0.02, 1 - u * u)))); }
+            const u = -x / 19; return Math.max(2, Math.round(5.4 * (1 - u * u * 0.55)));
+        }
+        function keelY(x) {
+            return x >= 0 ? Math.round(Math.pow(x / 16, 2) * 3) : Math.round(Math.pow(x / 16, 2) * 2);
+        }
+        function buildShip() {
+            for (let x = -16; x <= 16; x++) {                          // 선체 (뱃머리 +x)
+                const half = hullHalf(x), k = keelY(x);
+                for (let y = k; y <= 6; y++) {
+                    const w = y <= k + 1 ? Math.max(1, half - 2) : (y <= 3 ? Math.max(1, half - 1) : half);
+                    s.box(x, y, -w, x, y, w, y >= 5 ? P.hullTop : (y % 2 ? P.hull : P.hullD));
+                }
+                s.add(x, 5, -half, P.trim); s.add(x, 5, half, P.trim); // 금장 라인
+            }
+            for (let z = -2; z <= 2; z += 2) s.add(-16, 4, z, P.glow); // 선미 창
+            for (let x = -15; x <= 15; x++) {                          // 갑판 + 뱃전
+                const half = hullHalf(x);
+                s.box(x, 7, -(half - 1), x, 7, half - 1, x % 2 ? P.deck : P.deckD);
+                s.box(x, 7, half, x, 8, half, x % 5 === 0 ? P.trim : P.hullTop);
+                s.box(x, 7, -half, x, 8, -half, x % 5 === 0 ? P.trim : P.hullTop);
+            }
+            s.box(-16, 7, -2, -16, 8, 2, P.hullTop);                   // 선미 난간
+            for (let x = -15; x <= -9; x++) {                          // 선미루 (퀴터데크)
+                const half = hullHalf(x);
+                s.box(x, 8, -(half - 2), x, 9, half - 2, x % 2 ? P.deckD : P.deck);
+                s.add(x, 10, half - 2, P.hullTop); s.add(x, 10, -(half - 2), P.hullTop);
+            }
+            s.box(-9, 8, -1, -9, 9, 1, P.mastD);                       // 선실 문
+            s.add(-12, 9, hullHalf(-12) - 2, P.glow);                  // 선실 창
+            s.add(-12, 9, -(hullHalf(-12) - 2), P.glow);
+            for (let a = 0; a < 16; a++) {                             // 조타륜
+                const ang = a * Math.PI / 8;
+                s.add(-11, Math.round(12 + Math.cos(ang) * 2.2), Math.round(Math.sin(ang) * 2.2), P.mastD);
+            }
+            s.box(-11, 10, 0, -11, 12, 0, P.trunkD);
+            s.add(-11, 12, 0, P.trim);
+            s.line(14, 8, 0, 23, 12, 0, 0.7, P.mast);                  // 기움돛대(바우스프릿)
+            s.cylinderY(-3, 8, 36, 0, 1.1, P.mast);                    // 주돛대
+            s.cylinderY(7, 8, 30, 0, 1.1, P.mast);                     // 앞돛대
+            s.sphere(-3, 37, 0, 1, P.trim); s.sphere(7, 31, 0, 1, P.trim);
+            s.cylinderY(-3, 25, 25, 0, 2.2, P.mastD);                  // 망대(크로우즈 네스트)
+            s.ringY(-3, 26, 0, 2.2, 0.8, P.mast);
+            sail(-3, 13, 24, 7, 3);                                    // 주돛
+            sail(7, 12, 21, 6, 3);                                     // 앞돛
+            s.line(7, 29, 0, 22, 12, 0, 0.4, P.rope);                  // 삭구(리깅)
+            s.line(-3, 34, 0, 7, 28, 0, 0.4, P.rope);
+            s.line(-3, 33, 0, -15, 9, 0, 0.4, P.rope);
+            s.line(-3, 27, 0, -8, 9, 4, 0.4, P.rope);
+            s.line(-3, 27, 0, -8, 9, -4, 0.4, P.rope);
+            s.line(7, 24, 0, 11, 9, 3, 0.4, P.rope);
+            s.line(7, 24, 0, 11, 9, -3, 0.4, P.rope);
+            for (const cx of [-6, 0, 6]) {                             // 좌우 대포 3문씩
+                const half = hullHalf(cx);
+                s.box(cx - 1, 4, half, cx + 1, 6, half, P.dark);
+                s.box(cx - 1, 4, -half, cx + 1, 6, -half, P.dark);
+                s.cylinderZ(cx, 5, half, half + 2, 0.9, P.cannon);
+                s.cylinderZ(cx, 5, -half - 2, -half, 0.9, P.cannon);
+            }
+            s.sphere(2, 8, -2, 0.9, P.dark); s.sphere(3, 8, -3, 0.9, P.dark); // 포탄 더미
+            s.sphere(3, 8, -1, 0.9, P.dark); s.sphere(2, 9, -2, 0.8, P.dark);
+            s.box(-17, 10, 0, -17, 11, 0, P.glow);                     // 선미 랜턴
+            s.add(-17, 12, 0, P.dark);
+        }
+        function sail(mx, yBot, yTop, hw, bulge) {                     // 바람을 머금은 가로돛
+            for (let z = -hw; z <= hw; z++) {
+                const uz = Math.cos((z / hw) * (Math.PI / 2));
+                for (let y = yBot; y <= yTop; y++) {
+                    const uy = (y - yBot) / (yTop - yBot);
+                    const bx = mx + 1 + Math.round(bulge * uz * Math.sin(uy * Math.PI));
+                    s.add(bx, y, z, (y - yBot) % 5 === 2 ? P.sailD : P.sail);
+                }
+            }
+            s.box(mx, yTop + 1, -hw - 1, mx, yTop + 1, hw + 1, P.mastD); // 활대
+            s.box(mx, yBot - 1, -hw, mx, yBot - 1, hw, P.mastD);
+        }
+
+        ocean();
+        tentacle(-34, -16, 30, 0.6, 1);
+        tentacle(10, 30, 25, 2.4, -1);
+        island();
+        stormClouds();
+        rockSpire(-62, -44, 22);
+        rockSpire(64, -40, 17);
+        buildShip();
+
+        scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.86, metalness: 0.04 }));
+
+        // 해적선 그룹 — 파도 위 흔들림 (rotation.x/z 사인)
+        const shipGroup = new THREE.Group();
+        shipGroup.position.set(-10, 3, 6);
+        scene.add(shipGroup);
+        shipGroup.add(buildVoxelMesh(THREE, s, { size: 0.95, roughness: 0.82, metalness: 0.06 }));
+
+        const lantern = new THREE.PointLight(0xffb45a, 1.6, 46, 2);
+        lantern.position.set(-17, 11, 0);
+        shipGroup.add(lantern);
+
+        // 펄럭이는 해골 깃발 (주돛대 꼭대기, 세로 스트립 웨이브)
+        const FLAG = [
+            '.........',
+            '..XXXXX..',
+            '..X.X.X..',
+            '..XXXXX..',
+            '...X.X...',
+            '.X.....X.',
+        ];
+        const flagGroup = new THREE.Group();
+        flagGroup.position.set(-3, 31, 0);
+        shipGroup.add(flagGroup);
+        const flagGeo = new THREE.BoxGeometry(1, 1, 0.35);
+        const flagBlack = new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 0.9 });
+        const flagWhite = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.9 });
+        const flagCols = [];
+        for (let i = 0; i < 9; i++) {
+            const col = new THREE.Group();
+            col.position.x = -(i + 1);
+            for (let row = 0; row < 6; row++) {
+                const m = new THREE.Mesh(flagGeo, FLAG[row][i] === 'X' ? flagWhite : flagBlack);
+                m.position.y = 5 - row;
+                m.castShadow = true;
+                col.add(m);
+            }
+            flagGroup.add(col);
+            flagCols.push(col);
+        }
+
+        // 선회하는 갈매기들
+        const gullGroup = new THREE.Group();
+        scene.add(gullGroup);
+        const gullBodyGeo = new THREE.BoxGeometry(2.6, 0.9, 1.0);
+        const gullHeadGeo = new THREE.BoxGeometry(0.9, 0.7, 0.7);
+        const gullBeakGeo = new THREE.BoxGeometry(0.6, 0.3, 0.3);
+        const gullWingLGeo = new THREE.BoxGeometry(1.2, 0.22, 3.2); gullWingLGeo.translate(0, 0, 1.7);
+        const gullWingRGeo = new THREE.BoxGeometry(1.2, 0.22, 3.2); gullWingRGeo.translate(0, 0, -1.7);
+        const gullWhite = new THREE.MeshStandardMaterial({ color: 0xf4f6f8, roughness: 0.85 });
+        const gullGrey = new THREE.MeshStandardMaterial({ color: 0xd7dde6, roughness: 0.85 });
+        const gullOrange = new THREE.MeshStandardMaterial({ color: 0xff9a3c, roughness: 0.8 });
+        const gulls = [];
+        for (let i = 0; i < 3; i++) {
+            const g = new THREE.Group();
+            const body = new THREE.Mesh(gullBodyGeo, gullWhite);
+            const head = new THREE.Mesh(gullHeadGeo, gullWhite); head.position.set(1.5, 0.5, 0);
+            const beak = new THREE.Mesh(gullBeakGeo, gullOrange); beak.position.set(2.2, 0.45, 0);
+            const wingL = new THREE.Mesh(gullWingLGeo, gullGrey);
+            const wingR = new THREE.Mesh(gullWingRGeo, gullGrey);
+            body.castShadow = true; wingL.castShadow = true; wingR.castShadow = true;
+            g.add(body, head, beak, wingL, wingR);
+            g.userData = { phase: i * 2.1, r: 24 + i * 5, h: 34 + i * 4, speed: 0.28 + i * 0.05, wingL, wingR };
+            gullGroup.add(g);
+            gulls.push(g);
+        }
+
+        // 원경 번개 (플리커 볼트)
+        const boltGroup = new THREE.Group();
+        scene.add(boltGroup);
+        const boltMat = new THREE.MeshBasicMaterial({ color: 0xeaf4ff, transparent: true, opacity: 0 });
+        const boltGeo = new THREE.BoxGeometry(1.1, 2.4, 1.1);
+        const boltPath = [[-34, 72, -52], [-38, 62, -51], [-31, 52, -50], [-36, 41, -50]];
+        for (let seg = 0; seg < boltPath.length - 1; seg++) {
+            const [ax, ay, az] = boltPath[seg], [bx, by, bz] = boltPath[seg + 1];
+            const n = 6;
+            for (let j = 0; j < n; j++) {
+                const tt = j / n;
+                const m = new THREE.Mesh(boltGeo, boltMat);
+                m.position.set(ax + (bx - ax) * tt, ay + (by - ay) * tt, az + (bz - az) * tt);
+                boltGroup.add(m);
+            }
+        }
+
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+            // 파도 위 배의 흔들림: 롤(x) + 피치(z) + 상하 부침
+            shipGroup.rotation.x = Math.sin(t * 0.62) * 0.045;
+            shipGroup.rotation.z = Math.sin(t * 0.41 + 1.2) * 0.03;
+            shipGroup.position.y = 3 + Math.sin(t * 0.85 + 0.6) * 0.7;
+            // 깃발 웨이브
+            for (let i = 0; i < flagCols.length; i++) {
+                const k = (i + 1) / flagCols.length;
+                flagCols[i].position.z = Math.sin(t * 7 - i * 0.75) * 1.4 * k;
+                flagCols[i].position.y = Math.sin(t * 7 - i * 0.75 + 0.6) * 0.3 * k;
+            }
+            // 갈매기 선회 + 날갯짓
+            for (const g of gulls) {
+                const u = g.userData;
+                const ang = t * u.speed + u.phase;
+                g.position.set(4 + Math.cos(ang) * u.r, u.h + Math.sin(t * 1.6 + u.phase) * 1.8, Math.sin(ang) * u.r);
+                g.rotation.y = -ang - Math.PI / 2;
+                const flap = Math.sin(t * 6.5 + u.phase) * 0.55;
+                u.wingL.rotation.x = flap;
+                u.wingR.rotation.x = -flap;
+            }
+            // 원경 번개 플리커 (결정론적)
+            const lf = Math.sin(t * 1.1) * Math.sin(t * 2.7 + 1.4) * Math.sin(t * 5.3 + 0.5);
+            const flick = lf > 0.5 ? Math.min(1, (lf - 0.5) * 6) : 0;
+            boltMat.opacity = flick;
+            storm.intensity = flick * 28;
+            // 랜턴 흔들리는 불빛
+            lantern.intensity = 1.6 + Math.sin(t * 6.2) * 0.3 + Math.sin(t * 13.1) * 0.12;
+            controls.target.y = 12 + Math.sin(t * 0.9) * 1.0;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

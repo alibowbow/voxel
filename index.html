@@ -384,17 +384,25 @@
         const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const MAX_DPR = 1.5;
 
+        // 브라우저의 WebGL 컨텍스트 한도(~16)를 넘지 않도록 화면 밖 카드의
+        // 렌더러는 해제하고(suspend) 다시 보이면 재생성한다. 복셀 씬/카메라는
+        // 한 번만 만들어 유지하므로 재개 비용은 렌더러 생성뿐이다.
+        const MAX_LIVE = 12;
+        const liveOrder = new Set(); // 렌더러 보유 프리뷰 (삽입순 = 오래된 순)
+
         class LivePreview {
             constructor(holder, def, phase) {
                 this.holder = holder;
                 this.def = def;
                 this.phase = phase;
-                this.ready = false;
+                this.built = false;
                 this.failed = false;
+                this.renderer = null;
+                this.canvas = null;
             }
 
-            init() {
-                if (this.ready || this.failed) return;
+            buildScene() {
+                if (this.built || this.failed) return;
                 try {
                     const v = new VoxelBuilder();
                     this.def.preview3d(v);
@@ -428,33 +436,63 @@
                     const dist = R / Math.tan(Math.PI * 35 / 360) * 1.12;
                     this.camera.position.set(0, dist * 0.42, dist * 0.95);
                     this.camera.lookAt(0, 0, 0);
+                    this.built = true;
+                } catch (err) {
+                    this.failed = true;
+                    console.warn('Live preview scene failed for', this.def.file, err);
+                }
+            }
 
-                    const canvas = document.createElement('canvas');
-                    canvas.className = 'preview-canvas';
-                    this.holder.appendChild(canvas);
+            createRenderer() {
+                if (!this.built || this.failed || this.renderer) return;
+                const canvas = document.createElement('canvas');
+                canvas.className = 'preview-canvas';
+                this.holder.appendChild(canvas);
+                try {
                     this.renderer = new THREE.WebGLRenderer({
                         canvas, alpha: true, antialias: true, powerPreference: 'low-power',
                     });
-                    this.renderer.setClearColor(0x000000, 0);
-                    canvas.addEventListener('webglcontextlost', (e) => {
-                        e.preventDefault();
-                        this.holder.classList.remove('live');
-                        active.delete(this);
-                        updateRunning();
-                    });
-                    canvas.addEventListener('webglcontextrestored', () => {
-                        this.holder.classList.add('live');
-                        active.add(this);
-                        updateRunning();
-                    });
-
-                    this.resize();
-                    this.ready = true;
-                    this.render(0);
-                    this.holder.classList.add('live');
                 } catch (err) {
-                    this.failed = true;
-                    console.warn('Live preview failed for', this.def.file, err);
+                    canvas.remove();
+                    console.warn('WebGL unavailable for', this.def.file, err);
+                    return;
+                }
+                this.canvas = canvas;
+                this.renderer.setClearColor(0x000000, 0);
+                canvas.addEventListener('webglcontextlost', (e) => {
+                    e.preventDefault();
+                    this.suspend();
+                    updateRunning();
+                });
+
+                liveOrder.add(this);
+                if (liveOrder.size > MAX_LIVE) {
+                    const oldest = liveOrder.values().next().value;
+                    if (oldest && oldest !== this) oldest.suspend();
+                }
+
+                this.resize();
+                this.render(0);
+                this.holder.classList.add('live');
+            }
+
+            init() {
+                this.buildScene();
+                this.createRenderer();
+            }
+
+            suspend() {
+                active.delete(this);
+                liveOrder.delete(this);
+                this.holder.classList.remove('live');
+                if (this.renderer) {
+                    this.renderer.dispose();
+                    if (this.renderer.forceContextLoss) try { this.renderer.forceContextLoss(); } catch (e) { /* 이미 유실됨 */ }
+                    this.renderer = null;
+                }
+                if (this.canvas) {
+                    this.canvas.remove();
+                    this.canvas = null;
                 }
             }
 
@@ -469,7 +507,7 @@
             }
 
             render(t) {
-                if (!this.ready) return;
+                if (!this.renderer) return;
                 this.group.rotation.y = reduced ? 0.7 : this.phase + t * 0.45;
                 this.renderer.render(this.scene, this.camera);
             }
@@ -493,12 +531,12 @@
                 if (!p) continue;
                 if (en.isIntersecting) {
                     p.init();
-                    if (p.ready) {
+                    if (p.renderer) {
                         active.add(p);
                         if (reduced) p.render(0);
                     }
                 } else {
-                    active.delete(p);
+                    p.suspend();
                 }
             }
             updateRunning();
@@ -533,7 +571,7 @@
 
         window.addEventListener('resize', () => {
             for (const p of previews) {
-                if (!p.ready) continue;
+                if (!p.renderer) continue;
                 p.resize();
                 if (reduced) p.render(0);
             }

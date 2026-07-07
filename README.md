@@ -27,6 +27,18 @@ A browser voxel editor anyone can use:
 | 006 | 산호초 바닷속 (Coral Reef) | [`lib/ocean.html`](lib/ocean.html) | ocean, animal, animated |
 | 007 | 겨울밤 오두막 (Winter Cabin) | [`lib/winter.html`](lib/winter.html) | winter, night, animated |
 | 008 | 미니 행성 (Tiny Planet) | [`lib/tinyplanet.html`](lib/tinyplanet.html) | space, animated |
+| 009 | 용의 성 (Dragon Keep) | [`lib/dragon.html`](lib/dragon.html) | fantasy, animated |
+| 010 | 벚꽃 정원 (Sakura Garden) | [`lib/sakura.html`](lib/sakura.html) | nature, spring, animated |
+| 011 | 사막 오아시스 (Desert Oasis) | [`lib/desert.html`](lib/desert.html) | desert, animated |
+| 012 | 산악 증기기관차 (Mountain Steam Train) | [`lib/train.html`](lib/train.html) | vehicle, nature, animated |
+| 013 | 남극 펭귄 마을 (Penguin Colony) | [`lib/penguin.html`](lib/penguin.html) | animal, winter, animated |
+| 014 | 화산 섬 (Volcano Island) | [`lib/volcano.html`](lib/volcano.html) | nature, animated |
+| 015 | 달빛 놀이공원 (Moonlit Funfair) | [`lib/funfair.html`](lib/funfair.html) | city, night, animated |
+| 016 | 화성 개척 기지 (Mars Base) | [`lib/mars.html`](lib/mars.html) | space, animated |
+| 017 | 할로윈 유령 마을 (Halloween Village) | [`lib/halloween.html`](lib/halloween.html) | night, fantasy, animated |
+| 018 | 해적선과 크라켄 (Pirate Ship & Kraken) | [`lib/pirate.html`](lib/pirate.html) | ocean, fantasy, animated |
+| 019 | 공룡 계곡 (Dinosaur Valley) | [`lib/dino.html`](lib/dino.html) | animal, nature, animated |
+| 020 | 골목 야시장 (Night Market Alley) | [`lib/nightmarket.html`](lib/nightmarket.html) | city, night, animated |
 
 ## Project structure
 

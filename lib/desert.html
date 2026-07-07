@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 사막 오아시스</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(#ffe8b8 0%, #ffcc7a 55%, #e8955a 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 40%, rgba(90, 45, 10, 0.35) 130%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #b56a2e; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1s ease, visibility 1s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #ffb347;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 24px rgba(255, 179, 71, 0.75); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #45d0c0; box-shadow: 0 0 24px rgba(69, 208, 192, 0.75); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #ffe3b8; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(64, 32, 8, 0.55);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(255, 224, 170, 0.28);
+            color: #fff; box-shadow: 0 15px 35px rgba(70, 30, 0, 0.4); z-index: 10; pointer-events: none;
+            max-width: 420px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.2s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #ffb347; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #45d0c0; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #ffeeda; line-height: 1.8;
+            background: rgba(40, 18, 0, 0.32); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>모래바람 너머 오아시스와 피라미드를 세우고 있습니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">사막 오아시스</div>
+        <div class="subtitle">피라미드 · 스핑크스 · 야자수 · 굴러가는 회전초</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf5c87e);
+        scene.fog = new THREE.FogExp2(0xf0cf9a, 0.0032);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
+        camera.position.set(-66, 44, 88);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 12, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 240;
+        controls.minDistance = 22;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.7;
+
+        // 한낮의 사막 태양 + 오아시스의 시원한 빛
+        scene.add(new THREE.AmbientLight(0xffe9c4, 0.55));
+        scene.add(new THREE.HemisphereLight(0xffe6b0, 0xc7975a, 0.75));
+        const sunLight = new THREE.DirectionalLight(0xffdca0, 1.5);
+        sunLight.position.set(70, 105, 45);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.set(4096, 4096);
+        const d = 120;
+        sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
+        sunLight.shadow.camera.near = 10; sunLight.shadow.camera.far = 400;
+        sunLight.shadow.bias = -0.0005;
+        scene.add(sunLight);
+        const oasisLight = new THREE.PointLight(0x66d9e8, 1.1, 55, 2);
+        oasisLight.position.set(14, 10, 18);
+        scene.add(oasisLight);
+
+        const P = {
+            sand: 0xf0d391, sandShade: 0xdcbc74, sandDark: 0xc9a45e, pebble: 0xa9885c,
+            water: 0x3ec6d8, waterDeep: 0x2596b8, waterLight: 0x7fe4ef,
+            grass: 0x6fae4e, grassD: 0x4e8a3a,
+            trunk: 0x8a6238, trunkD: 0x6f4c28, leaf: 0x3f9e4f, leafD: 0x2f7e3c, coco: 0x6b4a26,
+            pyr: 0xd9b36a, pyrD: 0xc59b58, sphx: 0xcf9f5e, sphxD: 0xb5854a,
+            camel: 0xc9924f, camelD: 0xa8713a, saddle: 0xd8465f, saddle2: 0xf2c14e,
+            cactus: 0x4a8f45, cactusD: 0x3a7538, flower: 0xf27ba7,
+            sun: 0xffdf80, cloud: 0xfff4e0, bird: 0x4a3826, rock: 0x9d8468,
+        };
+
+        const v = new VoxelBuilder();
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(20260707);
+
+        const OX = 14, OZ = 18; // 오아시스 중심
+        function groundH(x, z) {
+            let h = Math.max(0, Math.round(3 + Math.sin(x * 0.055 + 1.3) * 2.6 + Math.cos(z * 0.07 - 0.5) * 2.1 + Math.sin((x + z) * 0.028) * 1.7));
+            if (Math.hypot(x - OX, z - OZ) < 12) h = Math.min(h, 1); // 물가는 평평하게
+            return h;
+        }
+
+        function sandField() {
+            for (let x = -68; x <= 68; x++) {
+                for (let z = -58; z <= 58; z++) {
+                    const dd = Math.hypot(x - OX, z - OZ);
+                    if (dd < 7.2) { // 오아시스 물웅덩이
+                        v.add(x, 0, z, dd < 4.5 ? P.waterDeep : (rng() > 0.88 ? P.waterLight : P.water));
+                        continue;
+                    }
+                    const h = groundH(x, z);
+                    v.add(x, h, z, rng() > 0.86 ? P.sandShade : P.sand);
+                    if (h > 0) v.add(x, h - 1, z, P.sandShade);
+                    if (dd < 11.5) { // 물가의 풀
+                        if (rng() > 0.7) v.add(x, h + 1, z, rng() > 0.5 ? P.grass : P.grassD);
+                    } else if (rng() > 0.996) {
+                        v.add(x, h + 1, z, P.pebble); // 자갈 알갱이
+                    }
+                }
+            }
+        }
+
+        function pyramid(cx, cz, half, h) {
+            const y0 = Math.max(0, groundH(cx, cz) - 2);
+            for (let i = 0; i <= h; i++) {
+                const w = Math.round(half * (1 - i / h));
+                v.box(cx - w, y0 + i, cz - w, cx + w, y0 + i, cz + w, i % 4 === 3 ? P.pyrD : P.pyr);
+            }
+            v.add(cx, y0 + h + 1, cz, P.saddle2); // 황금 캡스톤
+        }
+
+        function sphinx() {
+            const bx = 40, bz = -50;
+            const y0 = groundH(bx, bz);
+            v.box(bx - 11, y0, bz - 4, bx + 6, y0 + 6, bz + 4, P.sphx); // 몸통
+            v.box(bx + 6, y0, bz - 4, bx + 13, y0 + 2, bz - 2, P.sphx); // 앞다리
+            v.box(bx + 6, y0, bz + 2, bx + 13, y0 + 2, bz + 4, P.sphx);
+            v.box(bx - 11, y0 + 6, bz - 3, bx - 4, y0 + 8, bz + 3, P.sphxD); // 뒷허리
+            v.box(bx + 4, y0 + 6, bz - 2, bx + 9, y0 + 13, bz + 2, P.sphx); // 머리
+            v.box(bx + 3, y0 + 9, bz - 4, bx + 9, y0 + 13, bz + 4, P.sphxD); // 네메스 두건
+            v.box(bx + 3, y0 + 13, bz - 3, bx + 9, y0 + 14, bz + 3, P.sphx);
+            v.box(bx + 9, y0 + 11, bz - 1, bx + 9, y0 + 11, bz + 1, P.sphxD); // 눈매 음영
+        }
+
+        function palm(x, z, h, dx, dz) {
+            let px = x, pz = z;
+            for (let i = 0; i <= h; i++) { // 휘어진 줄기
+                const t = i / h;
+                px = x + dx * t * t;
+                pz = z + dz * t * t;
+                const rx = Math.round(px), rz = Math.round(pz);
+                v.box(rx - 1, 1 + i, rz - 1, rx, 1 + i, rz, i % 3 === 2 ? P.trunkD : P.trunk);
+            }
+            const tx = Math.round(px), ty = 1 + h, tz = Math.round(pz);
+            const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]];
+            for (let k = 0; k < dirs.length; k++) { // 늘어진 야자잎 8장
+                const ax = dirs[k][0], az = dirs[k][1];
+                const c = k % 2 ? P.leaf : P.leafD;
+                v.line(tx, ty, tz, tx + ax * 5, ty + 2, tz + az * 5, 0.6, c);
+                v.line(tx + ax * 5, ty + 2, tz + az * 5, tx + ax * 9, ty - 1, tz + az * 9, 0.6, c);
+            }
+            v.add(tx + 1, ty - 1, tz, P.coco); // 코코넛
+            v.add(tx - 1, ty - 1, tz + 1, P.coco);
+            v.add(tx, ty - 1, tz - 1, 0x5a3c1e);
+        }
+
+        function camel(cx, cz) {
+            const y0 = groundH(cx, cz);
+            for (const l of [[-4, -2], [-4, 2], [3, -2], [3, 2]]) // 다리 4개
+                v.box(cx + l[0], y0, cz + l[1], cx + l[0] + 1, y0 + 6, cz + l[1] + 1, P.camelD);
+            v.ellipsoid(cx, y0 + 8, cz, 6, 3, 3, P.camel); // 몸통
+            v.sphere(cx - 1, y0 + 11, cz, 3, P.camel); // 혹
+            v.box(cx - 3, y0 + 12, cz - 3, cx + 1, y0 + 12, cz + 3, P.saddle); // 안장 담요
+            v.box(cx - 3, y0 + 13, cz - 2, cx + 1, y0 + 13, cz + 2, P.saddle2);
+            v.line(cx + 5, y0 + 9, cz, cx + 9, y0 + 14, cz, 1.4, P.camel); // 목
+            v.ellipsoid(cx + 10, y0 + 15, cz, 3, 2, 2, P.camel); // 머리
+            v.add(cx + 9, y0 + 17, cz - 1, P.camelD); // 귀
+            v.add(cx + 9, y0 + 17, cz + 1, P.camelD);
+            v.add(cx + 10, y0 + 16, cz - 2, 0x2a1c10); // 눈
+            v.add(cx + 10, y0 + 16, cz + 2, 0x2a1c10);
+            v.add(cx + 13, y0 + 14, cz, P.camelD); // 콧등
+            v.line(cx - 6, y0 + 9, cz, cx - 8, y0 + 5, cz + 1, 0.4, P.camelD); // 꼬리
+        }
+
+        function cactus(x, z, h) {
+            const y0 = groundH(x, z);
+            v.cylinderY(x, y0, y0 + h, z, 1.6, P.cactus);
+            v.box(x + 2, y0 + Math.round(h * 0.45), z, x + 4, y0 + Math.round(h * 0.45) + 1, z, P.cactusD); // 오른팔
+            v.cylinderY(x + 4, y0 + Math.round(h * 0.45), y0 + Math.round(h * 0.8), z, 1.1, P.cactus);
+            v.box(x - 4, y0 + Math.round(h * 0.6), z, x - 2, y0 + Math.round(h * 0.6) + 1, z, P.cactusD); // 왼팔
+            v.cylinderY(x - 4, y0 + Math.round(h * 0.6), y0 + h - 1, z, 1.1, P.cactus);
+            v.add(x, y0 + h + 1, z, P.flower); // 선인장 꽃
+        }
+
+        function rocks() {
+            v.sphere(2, 1, 30, 2.4, P.rock);
+            v.sphere(26, 1, 8, 1.8, P.rock);
+            v.sphere(5, 1, 8, 1.5, 0x8a7258);
+        }
+
+        function skyDeco() {
+            v.sphere(54, 90, -52, 7, P.sun); // 이글거리는 태양
+            v.ellipsoid(-34, 92, -50, 9, 2, 4, P.cloud);
+            v.ellipsoid(-22, 90, -46, 6, 2, 3, 0xffeed2);
+            v.ellipsoid(30, 97, -38, 7, 2, 3, P.cloud);
+            for (const b of [[-20, 78, -30], [-8, 82, -36], [4, 76, -26]]) { // 철새 실루엣
+                v.line(b[0] - 3, b[1] + 1, b[2], b[0], b[1], b[2], 0.4, P.bird);
+                v.line(b[0], b[1], b[2], b[0] + 3, b[1] + 1, b[2], 0.4, P.bird);
+            }
+        }
+
+        sandField();
+        pyramid(-42, -38, 18, 34); // 대피라미드
+        pyramid(-8, -50, 11, 22);  // 작은 피라미드
+        sphinx();
+        palm(8, 12, 14, -4, -3);
+        palm(22, 11, 12, 4, -3);
+        palm(21, 26, 15, 4, 4);
+        palm(6, 25, 11, -4, 3);
+        camel(-26, 24);
+        cactus(-48, -14, 12);
+        cactus(40, 30, 10);
+        cactus(-30, 42, 9);
+        cactus(28, -30, 11);
+        rocks();
+        skyDeco();
+
+        // 회전초 (텀블위드) — 원 궤도를 돌며 스스로 구른다
+        const twB = new VoxelBuilder();
+        for (let i = 0; i < 26; i++) {
+            const th = rng() * Math.PI * 2;
+            const ph = Math.acos(2 * rng() - 1);
+            const ex = 3 * Math.sin(ph) * Math.cos(th);
+            const ey = 3 * Math.cos(ph);
+            const ez = 3 * Math.sin(ph) * Math.sin(th);
+            twB.line(-ex * 0.55, -ey * 0.55, -ez * 0.55, ex, ey, ez, 0.4, i % 3 ? 0xb08a4a : 0x8f6b34);
+        }
+        const tumbleGroup = new THREE.Group();
+        const tumbleMesh = buildVoxelMesh(THREE, twB, { size: 0.8, roughness: 0.95, metalness: 0.0 });
+        tumbleGroup.add(tumbleMesh);
+        scene.add(tumbleGroup);
+        const ORBIT_R = 38, ORBIT_X = -4, ORBIT_Z = 2;
+
+        // 아지랑이 — 달궈진 모래 위로 피어오르는 반투명 입자
+        const hazeGroup = new THREE.Group();
+        scene.add(hazeGroup);
+        const hazeGeo = new THREE.BoxGeometry(2.2, 4.5, 0.3);
+        const hazes = [];
+        for (let i = 0; i < 55; i++) {
+            let hx, hzz;
+            do { hx = -60 + rng() * 120; hzz = -50 + rng() * 100; }
+            while (Math.hypot(hx - OX, hzz - OZ) < 14); // 물 위는 제외
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffedc8, transparent: true, opacity: 0, depthWrite: false });
+            const m = new THREE.Mesh(hazeGeo, mat);
+            m.userData = { x: hx, z: hzz, speed: 2 + rng() * 3, phase: rng(), top: 18 + rng() * 14, sway: 1 + rng() * 2, base: groundH(Math.round(hx), Math.round(hzz)) };
+            hazeGroup.add(m);
+            hazes.push(m);
+        }
+
+        scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.88, metalness: 0.03 }));
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+        }, 200);
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+
+            // 회전초: 원 궤도 + 자체 회전 + 통통 튀는 바운스
+            const ang = t * 0.32;
+            const tx = ORBIT_X + Math.cos(ang) * ORBIT_R;
+            const tz = ORBIT_Z + Math.sin(ang) * ORBIT_R;
+            tumbleGroup.position.set(tx, groundH(tx, tz) + 3.2 + Math.abs(Math.sin(t * 4.2)) * 1.6, tz);
+            tumbleGroup.rotation.y = -ang - Math.PI / 2; // 진행 방향으로 정렬
+            tumbleMesh.rotation.z = -t * 3.4;            // 구르기
+            tumbleMesh.rotation.x = Math.sin(t * 1.7) * 0.5;
+
+            // 아지랑이: 상승하며 흐려지는 열기
+            for (const m of hazes) {
+                const u = m.userData;
+                const cycle = (t * u.speed / u.top + u.phase) % 1;
+                m.position.set(
+                    u.x + Math.sin(t * 1.6 + u.phase * 9) * u.sway,
+                    u.base + 2 + cycle * u.top,
+                    u.z + Math.cos(t * 1.1 + u.phase * 7) * u.sway * 0.5);
+                m.material.opacity = 0.14 * Math.sin(Math.PI * cycle);
+                m.rotation.y = t * 0.5 + u.phase * 6;
+            }
+
+            oasisLight.intensity = 1.0 + Math.sin(t * 2.6) * 0.25; // 물결 반짝임
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
