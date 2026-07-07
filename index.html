@@ -440,6 +440,12 @@
                         e.preventDefault();
                         this.holder.classList.remove('live');
                         active.delete(this);
+                        updateRunning();
+                    });
+                    canvas.addEventListener('webglcontextrestored', () => {
+                        this.holder.classList.add('live');
+                        active.add(this);
+                        updateRunning();
                     });
 
                     this.resize();
@@ -495,6 +501,7 @@
                     active.delete(p);
                 }
             }
+            updateRunning();
         }, { rootMargin: '120px' });
         previews.forEach(p => io.observe(p.holder));
 
@@ -516,8 +523,13 @@
             }
         }
 
-        document.addEventListener('visibilitychange', () => setRunning(!document.hidden));
-        setRunning(true);
+        // 활성 프리뷰가 하나라도 있고 탭이 보일 때만 루프를 돌린다
+        function updateRunning() {
+            setRunning(!document.hidden && active.size > 0);
+        }
+
+        document.addEventListener('visibilitychange', updateRunning);
+        updateRunning();
 
         window.addEventListener('resize', () => {
             for (const p of previews) {
