@@ -36,6 +36,52 @@ window.VOXEL_SCENES = [
         accent: '#ff1155',
         cta: '#00ffff',
         tags: ['animal', 'beach'],
+        // 라이브 3D 카드 프리뷰용 미니 디오라마 (결정론적 — Math.random 금지)
+        preview3d(v) {
+            const C = { sand: 0xffdca8, sandWet: 0xe6c280, wood: 0x8b5a2b, woodD: 0x6b4226,
+                tire: 0x222222, frame: 0xff1155, metal: 0xaaaaaa, saddle: 0x5c3a21,
+                white: 0xffffff, shade: 0xeeeeee, beak: 0xffa500, pouch: 0xffcc00,
+                dark: 0x222222, band: 0x0000aa, scarf: 0xcc0000, gold: 0xffd700 };
+            // 모래 턴테이블 + 보드워크
+            v.cylinderY(0, 0, 1, 0, 11, C.sand);
+            for (let a = 0; a < 12; a++) {
+                const ang = a * Math.PI / 6;
+                v.add(Math.round(Math.cos(ang) * 9), 1, Math.round(Math.sin(ang) * 9), C.sandWet);
+            }
+            for (let x = -10; x <= 10; x++)
+                if (x % 4 !== 0) v.box(x, 1, -3, x, 2, 3, x % 2 ? C.wood : C.woodD);
+            // 자전거
+            v.torusZ(-4, 5, 0, 2.5, 0.8, C.tire); v.torusZ(4, 5, 0, 2.5, 0.8, C.tire);
+            v.sphere(-4, 5, 0, 0.6, C.metal); v.sphere(4, 5, 0, 0.6, C.metal);
+            v.line(-4, 5, 0, -1, 9, 0, 0.7, C.frame);
+            v.line(4, 5, 0, 2, 9, 0, 0.7, C.frame);
+            v.line(-1, 9, 0, 2, 9, 0, 0.7, C.frame);
+            v.line(0, 5, 0, -4, 5, 0, 0.5, C.frame);
+            v.box(-2, 10, -1, 0, 10, 1, C.saddle);
+            v.line(2, 9, 0, 3, 11, 0, 0.5, C.metal);
+            v.line(3, 11, -2, 3, 11, 2, 0.5, C.metal);
+            v.sphere(3, 12, -2, 0.7, C.gold);
+            // 펠리컨
+            v.ellipsoid(-1, 13, 0, 3, 3, 2, C.white);
+            v.line(-4, 12, 0, -6, 11, 0, 1.2, C.white);
+            v.add(-7, 10, 0, C.dark);
+            v.line(0, 15, 0, 2, 18, 0, 1.2, C.white);
+            v.sphere(2, 19, 0, 2, C.white);
+            v.add(3, 20, 1, C.dark); v.add(3, 20, -1, C.dark);
+            v.line(4, 19, 0, 8, 18, 0, 0.8, C.beak);
+            v.line(4, 18, 0, 6, 17, 0, 0.7, C.pouch);
+            // 선장 모자 + 스카프
+            v.cylinderY(2, 21, 21, 0, 2.4, C.dark);
+            v.cylinderY(2, 22, 23, 0, 1.7, C.white);
+            v.cylinderY(2, 22, 22, 0, 1.8, C.band);
+            v.torusY(0, 16, 0, 2, 0.7, C.scarf);
+            v.line(-1, 16, -1, -4, 14, -3, 0.6, C.scarf);
+            // 날개(핸들 잡기) + 다리(페달)
+            v.line(-1, 13, 2, 3, 11, 2, 0.9, C.shade);
+            v.line(-1, 13, -2, 3, 11, -2, 0.9, C.shade);
+            v.line(-1, 10, 1, 0, 6, 2, 0.6, C.beak);
+            v.line(-1, 10, -1, -1, 6, -2, 0.6, C.beak);
+        },
         preview: `
             <svg width="180" height="120" viewBox="0 0 180 120" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 16px rgba(0,0,0,0.3));">
                 <!-- Body -->
@@ -81,6 +127,46 @@ window.VOXEL_SCENES = [
         accent: '#28d7ff',
         cta: '#28d7ff',
         tags: ['game', 'nature'],
+        preview3d(v) {
+            const C = { grass: 0x62b947, grassL: 0x8ed65f, dirt: 0x8a6240, tunic: 0x1f9bd1,
+                tunicD: 0x10658d, skin: 0xf1c27d, hair: 0xf0c64f, pants: 0xd6c59a, boots: 0x6a3b1a,
+                glider: 0xd8a85a, gliderD: 0x6d3b1c, gold: 0xffd15c, leaf: 0x2f8f45, leafL: 0x5ec85a,
+                wood: 0x8a5a2b, blue: 0x28d7ff, slate: 0x344a5c, dark: 0x202020 };
+            // 초원 턴테이블
+            for (let x = -11; x <= 11; x++)
+            for (let z = -11; z <= 11; z++)
+                if (x * x + z * z <= 121) {
+                    v.add(x, 1, z, (x + z) % 2 ? C.grass : C.grassL);
+                    v.add(x, 0, z, C.dirt);
+                }
+            v.add(5, 2, 6, 0x4cc9ff); v.add(-6, 2, 4, 0xffdd43);
+            v.add(3, 2, -7, 0xff7ab6); v.add(-3, 2, -6, 0x4cc9ff);
+            // 나무 + 미니 사당
+            v.cylinderY(-7, 2, 7, -5, 1, C.wood);
+            v.sphere(-7, 9, -5, 3.2, C.leaf); v.sphere(-5, 10, -3.5, 2.2, C.leafL);
+            v.add(-6, 8, -3, 0xdd3344);
+            v.box(6, 2, -6, 8, 4, -4, C.slate); v.add(7, 5, -5, C.slate); v.add(7, 3, -3, C.blue);
+            // 공중의 링크
+            v.line(-1, 8, 0, -1, 5, 1, 0.7, C.pants); v.line(1, 8, 0, 1, 5, -1, 0.7, C.pants);
+            v.add(-1, 4, 1, C.boots); v.add(1, 4, -1, C.boots);
+            v.ellipsoid(0, 10, 0, 2, 2, 1, C.tunic);
+            v.box(-1, 9, -1, 1, 9, 1, C.tunicD);
+            v.line(-1, 12, 0, -3, 14, 0, 0.6, C.tunic);
+            v.line(1, 12, 0, 3, 14, 0, 0.6, C.tunic);
+            v.sphere(0, 15, 0, 1.7, C.skin);
+            v.ellipsoid(0, 16, 0, 1.8, 1, 1.8, C.hair);
+            v.add(1, 15, 1, C.dark); v.add(1, 15, -1, C.dark);
+            v.line(-1, 9, -1, -2, 14, -2, 0.4, 0xcfd8dc); v.add(-2, 14, -2, C.blue);
+            // 패러세일 캐노피 + 줄
+            for (let x = -6; x <= 6; x++) {
+                const y = 17 + Math.round(2 - (x * x) / 10);
+                for (let z = -2; z <= 2; z++)
+                    v.add(x, y, z, Math.abs(x) > 4 ? C.gliderD : (x === 0 && Math.abs(z) <= 1 ? C.gold : C.glider));
+            }
+            v.line(-5, 17, 0, -3, 14, 0, 0.4, C.gliderD);
+            v.line(5, 17, 0, 3, 14, 0, 0.4, C.gliderD);
+            v.line(-3, 14, 0, 3, 14, 0, 0.5, C.gliderD);
+        },
         preview: `
             <svg width="180" height="120" viewBox="0 0 180 120" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 16px rgba(0,0,0,0.25));">
                 <!-- Sky & ground -->
@@ -140,6 +226,35 @@ window.VOXEL_SCENES = [
         accent: '#ff6b2d',
         cta: '#ff6b2d',
         tags: ['space', 'animated'],
+        preview3d(v) {
+            const C = { pad: 0x8e969f, padD: 0x606a73, steel: 0xaab3bc, steelD: 0x59636d,
+                deep: 0x303943, white: 0xf4f8fb, white2: 0xdde5eb, tile: 0x151a20,
+                win: 0x78eaff, warn: 0xffd44d, fire: 0xff7a20, red: 0xff3b3b };
+            // 콘크리트 패드
+            v.cylinderY(0, 0, 1, 0, 11, C.pad);
+            v.ringY(0, 1, 0, 9, 0.6, C.padD);
+            v.ringY(0, 1, 0, 5.5, 0.5, C.warn);
+            // 발사 마운트 + 점화 글로우
+            v.cylinderY(2, 1, 3, 0, 3.4, C.deep, true);
+            v.ringY(2, 1, 0, 4, 0.5, C.fire);
+            // 부스터 + 상단 우주선
+            for (let y = 4; y <= 17; y++) v.cylinderY(2, y, y, 0, 2.4, y % 5 === 0 ? C.white2 : C.white);
+            v.box(1, 4, -2, 3, 17, -2, C.tile);
+            for (let y = 18; y <= 21; y++) v.cylinderY(2, y, y, 0, 2.4 * (1 - (y - 17) / 5.2), C.white);
+            v.add(2, 22, 0, C.white);
+            v.box(-1, 5, -1, -1, 8, 1, C.tile);
+            v.box(5, 5, -1, 5, 8, 1, C.tile);
+            v.add(0, 12, 0, C.win); v.add(0, 13, 0, C.win);
+            // 서비스 타워 + 젓가락 팔
+            v.box(-7, 1, -1, -5, 20, 1, C.steelD);
+            for (let y = 4; y <= 19; y += 4) v.box(-7, y, -1, -5, y, 1, C.steel);
+            v.line(-5, 16, -1, -1, 15, -1, 0.6, C.steel);
+            v.line(-5, 16, 1, -1, 15, 1, 0.6, C.steel);
+            v.add(-6, 21, 0, C.red);
+            v.line(-6, 20, 0, -6, 23, 0, 0.4, C.steel);
+            // 연료 탱크
+            v.cylinderY(7, 1, 5, -6, 2, C.white2); v.sphere(7, 6, -6, 2, C.white);
+        },
         preview: `
             <svg width="190" height="126" viewBox="0 0 190 126" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 18px rgba(0,0,0,0.28));">
                 <!-- Ground / concrete pad -->
@@ -204,6 +319,46 @@ window.VOXEL_SCENES = [
         accent: '#ff2d95',
         cta: '#1cf0ff',
         tags: ['city', 'cyberpunk', 'animated', 'night'],
+        preview3d(v) {
+            const C = { road: 0x232833, walk: 0x3a3f4a, bA: 0x3a4056, bB: 0x454c6b, bC: 0x35435c,
+                winW: 0xffdca0, winC: 0x9bf9ff, winM: 0xffa3e0, winO: 0x232a3c,
+                pink: 0xff2d95, cyan: 0x1cf0ff, purple: 0x9b5cff, yellow: 0xffe24a,
+                lamp: 0xfff2c4, pole: 0x3a3f48, red: 0xff3b3b, body: 0x1c2230, glass: 0x39f0ff };
+            // 야간 교차로 턴테이블
+            v.cylinderY(0, 0, 1, 0, 11, C.walk);
+            v.box(-11, 1, -2, 11, 1, 2, C.road);
+            v.box(-2, 1, -11, 2, 1, 11, C.road);
+            for (let x = -9; x <= 9; x += 3) v.add(x, 1, 0, 0xffdd55);
+            for (let z = -9; z <= 9; z += 3) v.add(0, 1, z, 0xffdd55);
+            // 네온 빌딩 4채 (창문은 결정론적 패턴)
+            const bldg = (cx, cz, h, base, neon) => {
+                v.box(cx - 2, 1, cz - 2, cx + 2, h, cz + 2, base);
+                for (let y = 3; y <= h - 3; y += 2)
+                    for (let o = -1; o <= 1; o++) {
+                        const pick = ((cx + cz + y + o * 3) % 4 + 4) % 4;
+                        const col = pick === 0 ? C.winW : pick === 1 ? C.winC : pick === 2 ? C.winM : C.winO;
+                        v.add(cx + o, y, cz - 2, col); v.add(cx + o, y, cz + 2, col);
+                        v.add(cx - 2, y, cz + o, col); v.add(cx + 2, y, cz + o, col);
+                    }
+                v.box(cx - 2, h - 1, cz - 2, cx + 2, h - 1, cz + 2, neon);
+                v.line(cx, h + 1, cz, cx, h + 3, cz, 0.4, C.pole);
+                v.add(cx, h + 4, cz, C.red);
+            };
+            bldg(-5, -5, 13, C.bA, C.pink);
+            bldg(6, -5, 16, C.bB, C.cyan);
+            bldg(5, 6, 10, C.bC, C.yellow);
+            bldg(-5, 6, 8, C.bB, C.purple);
+            // 가로등
+            v.line(3, 1, 3, 3, 7, 3, 0.4, C.pole); v.add(3, 7, 3, C.lamp);
+            v.line(-3, 1, -3, -3, 7, -3, 0.4, C.pole); v.add(-3, 7, -3, C.lamp);
+            // 홀로그램 링 + 하늘을 나는 차
+            v.torusY(0, 13, 0, 3, 0.6, C.cyan);
+            v.torusY(0, 13, 0, 1.5, 0.5, C.pink);
+            v.ellipsoid(-2, 18, 2, 2, 1, 1, C.body);
+            v.add(-1, 19, 2, C.glass);
+            v.add(-4, 18, 2, C.cyan);
+            v.line(-4, 18, 2, -7, 18, 3, 0.4, C.cyan);
+        },
         preview: `
             <svg width="190" height="126" viewBox="0 0 190 126" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 18px rgba(0,0,0,0.45));">
                 <!-- Moon -->

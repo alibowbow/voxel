@@ -3,8 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive procedural voxel art gallery built with Three.js — live rotating 3D previews.">
     <title>Voxel Gallery</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧊</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./lib/vendor/three.module.min.js",
+                "three/addons/": "./lib/vendor/addons/"
+            }
+        }
+    </script>
+
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -31,7 +43,7 @@
         header {
             position: relative;
             z-index: 1;
-            padding: 60px 40px 40px;
+            padding: 60px 40px 30px;
             text-align: center;
         }
 
@@ -69,17 +81,55 @@
             letter-spacing: 1px;
         }
 
+        /* Tag filter chips */
+        #filters {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 40px 28px;
+        }
+
+        .chip {
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: #99a;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 999px;
+            padding: 7px 16px;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s, background 0.2s;
+        }
+
+        .chip:hover { color: #fff; border-color: rgba(0,255,255,0.6); }
+
+        .chip.active {
+            color: #04252c;
+            background: #00ffff;
+            border-color: transparent;
+        }
+
         /* Gallery grid */
         main {
             position: relative;
             z-index: 1;
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px 40px 80px;
+            padding: 0 40px 80px;
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 28px;
         }
+
+        .hidden { display: none !important; }
 
         /* Card — accent colour is supplied per-card via the --accent variable */
         .card {
@@ -103,25 +153,45 @@
         .card-preview {
             width: 100%;
             aspect-ratio: 16/10;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             background: #ffcca8;
             position: relative;
             overflow: hidden;
         }
 
-        /* Icon fallback preview for scenes without custom art */
+        /* Static art shown until (or instead of) the live 3D preview */
+        .preview-fallback {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.7s ease;
+        }
+
         .preview-default {
             font-size: 64px;
             line-height: 1;
             filter: drop-shadow(0 6px 14px rgba(0,0,0,0.3));
         }
 
+        /* Live rotating voxel preview */
+        canvas.preview-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.7s ease;
+        }
+
+        .card-preview.live canvas.preview-canvas { opacity: 1; }
+        .card-preview.live .preview-fallback { opacity: 0; }
+
         .card-preview .preview-label {
             position: absolute;
             top: 12px;
             right: 12px;
+            z-index: 2;
             background: rgba(0,0,0,0.55);
             backdrop-filter: blur(6px);
             -webkit-backdrop-filter: blur(6px);
@@ -132,6 +202,23 @@
             letter-spacing: 1px;
             color: #00ffff;
             text-transform: uppercase;
+        }
+
+        .card-preview.live .preview-label::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #54ff9b;
+            margin-right: 6px;
+            vertical-align: 1px;
+            animation: liveBlink 1.6s ease-in-out infinite;
+        }
+
+        @keyframes liveBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
         }
 
         .card-info {
@@ -210,6 +297,13 @@
             color: #444;
             border-top: 1px solid rgba(255,255,255,0.05);
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            .logo-cube { animation: none; }
+            .card, .cta-arrow, .chip { transition: none; }
+            .card:hover { transform: none; }
+            .card-preview.live .preview-label::before { animation: none; }
+        }
     </style>
 </head>
 <body>
@@ -217,8 +311,10 @@
     <header>
         <div class="logo-cube"></div>
         <h1>Voxel Gallery</h1>
-        <p>Procedural 3D voxel art — built with Three.js</p>
+        <p><span id="scene-count"></span> procedural voxel scenes · live 3D previews — built with Three.js</p>
     </header>
+
+    <nav id="filters" aria-label="태그 필터"></nav>
 
     <!-- Cards are rendered from the scene manifest (scenes.js) -->
     <main id="gallery"></main>
@@ -229,17 +325,19 @@
 
     <script src="scenes.js"></script>
     <script>
+        // 카드/필터 렌더링 — 모듈 지원이 없는 환경에서도 동작하는 기본 레이어
         (function () {
             const gallery = document.getElementById('gallery');
+            const filters = document.getElementById('filters');
             const scenes = window.VOXEL_SCENES || [];
 
             const previewFor = (s) =>
                 s.preview || `<div class="preview-default">${s.icon || '🧊'}</div>`;
 
-            const cardHTML = (s) => `
-                <a class="card" href="${s.file}" style="--accent:${s.accent || '#ff1155'}; --cta:${s.cta || s.accent || '#00ffff'};">
+            const cardHTML = (s, i) => `
+                <a class="card" data-i="${i}" href="${s.file}" style="--accent:${s.accent || '#ff1155'}; --cta:${s.cta || s.accent || '#00ffff'};">
                     <div class="card-preview" style="background:${s.gradient || '#ffcca8'};">
-                        ${previewFor(s)}
+                        <div class="preview-fallback">${previewFor(s)}</div>
                         <div class="preview-label">${s.badge || 'Interactive 3D'}</div>
                     </div>
                     <div class="card-info">
@@ -254,7 +352,180 @@
                 `<div class="card-placeholder"><span class="plus">+</span><span>Coming Soon</span></div>`;
 
             gallery.innerHTML = scenes.map(cardHTML).join('') + placeholder;
+            document.getElementById('scene-count').textContent = scenes.length;
+
+            // 태그 필터 칩
+            const tags = [...new Set(scenes.flatMap(s => s.tags || []))].sort();
+            filters.innerHTML = ['all', ...tags]
+                .map(t => `<button class="chip${t === 'all' ? ' active' : ''}" data-tag="${t}">${t === 'all' ? 'All' : t}</button>`)
+                .join('');
+
+            filters.addEventListener('click', (e) => {
+                const chip = e.target.closest('.chip');
+                if (!chip) return;
+                filters.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c === chip));
+                const tag = chip.dataset.tag;
+                gallery.querySelectorAll('.card').forEach(card => {
+                    const s = scenes[+card.dataset.i];
+                    card.classList.toggle('hidden', tag !== 'all' && !(s.tags || []).includes(tag));
+                });
+                const ph = gallery.querySelector('.card-placeholder');
+                if (ph) ph.classList.toggle('hidden', tag !== 'all');
+            });
         })();
+    </script>
+
+    <script type="module">
+        // 라이브 3D 프리뷰 — 실패해도 위의 SVG 폴백이 그대로 유지되는 점진적 향상 레이어
+        import * as THREE from 'three';
+        import { VoxelBuilder, buildVoxelMesh } from './lib/voxel-engine.js';
+
+        const scenes = window.VOXEL_SCENES || [];
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const MAX_DPR = 1.5;
+
+        class LivePreview {
+            constructor(holder, def, phase) {
+                this.holder = holder;
+                this.def = def;
+                this.phase = phase;
+                this.ready = false;
+                this.failed = false;
+            }
+
+            init() {
+                if (this.ready || this.failed) return;
+                try {
+                    const v = new VoxelBuilder();
+                    this.def.preview3d(v);
+
+                    let minX = Infinity, minY = Infinity, minZ = Infinity;
+                    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+                    for (const key of v.voxels.keys()) {
+                        const [x, y, z] = key.split(',').map(Number);
+                        if (x < minX) minX = x; if (x > maxX) maxX = x;
+                        if (y < minY) minY = y; if (y > maxY) maxY = y;
+                        if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+                    }
+                    const R = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2 || 10;
+
+                    const mesh = buildVoxelMesh(THREE, v, { size: 0.92, roughness: 0.8, metalness: 0.06 });
+                    mesh.castShadow = false;
+                    mesh.receiveShadow = false;
+                    mesh.position.set(-(minX + maxX) / 2, -(minY + maxY) / 2, -(minZ + maxZ) / 2);
+                    this.group = new THREE.Group();
+                    this.group.add(mesh);
+
+                    this.scene = new THREE.Scene();
+                    this.scene.add(this.group);
+                    this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+                    this.scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x30281f, 0.9));
+                    const sun = new THREE.DirectionalLight(0xfff2dd, 1.7);
+                    sun.position.set(1.5, 2.2, 1.2);
+                    this.scene.add(sun);
+
+                    this.camera = new THREE.PerspectiveCamera(35, 16 / 10, 0.1, 600);
+                    const dist = R / Math.tan(Math.PI * 35 / 360) * 1.12;
+                    this.camera.position.set(0, dist * 0.42, dist * 0.95);
+                    this.camera.lookAt(0, 0, 0);
+
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'preview-canvas';
+                    this.holder.appendChild(canvas);
+                    this.renderer = new THREE.WebGLRenderer({
+                        canvas, alpha: true, antialias: true, powerPreference: 'low-power',
+                    });
+                    this.renderer.setClearColor(0x000000, 0);
+                    canvas.addEventListener('webglcontextlost', (e) => {
+                        e.preventDefault();
+                        this.holder.classList.remove('live');
+                        active.delete(this);
+                    });
+
+                    this.resize();
+                    this.ready = true;
+                    this.render(0);
+                    this.holder.classList.add('live');
+                } catch (err) {
+                    this.failed = true;
+                    console.warn('Live preview failed for', this.def.file, err);
+                }
+            }
+
+            resize() {
+                if (!this.renderer) return;
+                const w = this.holder.clientWidth || 320;
+                const h = this.holder.clientHeight || 200;
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
+                this.renderer.setSize(w, h, false);
+                this.camera.aspect = w / h;
+                this.camera.updateProjectionMatrix();
+            }
+
+            render(t) {
+                if (!this.ready) return;
+                this.group.rotation.y = reduced ? 0.7 : this.phase + t * 0.45;
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        const previews = [];
+        const active = new Set();
+
+        document.querySelectorAll('#gallery .card').forEach((card) => {
+            const def = scenes[+card.dataset.i];
+            if (!def || typeof def.preview3d !== 'function') return;
+            const holder = card.querySelector('.card-preview');
+            const p = new LivePreview(holder, def, previews.length * 0.9);
+            holder.__preview = p;
+            previews.push(p);
+        });
+
+        const io = new IntersectionObserver((entries) => {
+            for (const en of entries) {
+                const p = en.target.__preview;
+                if (!p) continue;
+                if (en.isIntersecting) {
+                    p.init();
+                    if (p.ready) {
+                        active.add(p);
+                        if (reduced) p.render(0);
+                    }
+                } else {
+                    active.delete(p);
+                }
+            }
+        }, { rootMargin: '120px' });
+        previews.forEach(p => io.observe(p.holder));
+
+        const t0 = performance.now();
+        let rafId = null;
+
+        function loop() {
+            rafId = requestAnimationFrame(loop);
+            const t = (performance.now() - t0) / 1000;
+            for (const p of active) p.render(t);
+        }
+
+        function setRunning(on) {
+            if (on && rafId === null && !reduced) {
+                rafId = requestAnimationFrame(loop);
+            } else if (!on && rafId !== null) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+        }
+
+        document.addEventListener('visibilitychange', () => setRunning(!document.hidden));
+        setRunning(true);
+
+        window.addEventListener('resize', () => {
+            for (const p of previews) {
+                if (!p.ready) continue;
+                p.resize();
+                if (reduced) p.render(0);
+            }
+        });
     </script>
 
 </body>
