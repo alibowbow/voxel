@@ -1,9 +1,19 @@
 # Voxel Gallery
 
-Interactive, procedurally-generated **voxel art** scenes built with
+Interactive, procedurally-generated **voxel art** built with
 [Three.js](https://threejs.org/). The homepage is a gallery with **live
-rotating 3D previews** of every scene and tag-based filtering; each scene is a
-self-contained page.
+rotating 3D previews** and tag filtering — and the **Voxel Studio** lets
+visitors build their own voxel art in the browser, save it as a PNG, and
+share it with a single link.
+
+## 🎨 Voxel Studio ([`lib/studio.html`](lib/studio.html))
+
+A browser voxel editor anyone can use:
+
+- Click to place blocks, right-click (or eraser mode) to remove, 16-colour palette
+- **PNG export** of your creation
+- **Share by URL** — the whole model is encoded into the link (`#v=...`), no server needed
+- Auto-saves to `localStorage`; undo, clear, mobile-friendly
 
 ## Live scenes
 
@@ -13,6 +23,10 @@ self-contained page.
 | 002 | 야생의 용사 링크 (Zelda BotW) | [`lib/zeldabotw.html`](lib/zeldabotw.html) | game, nature |
 | 003 | SpaceX Launch Pad | [`lib/spacex.html`](lib/spacex.html) | space, animated |
 | 004 | 네온 시티 (Neon City) | [`lib/neoncity.html`](lib/neoncity.html) | city, cyberpunk, animated, night |
+| 005 | 가을 한옥 마을 (Autumn Hanok) | [`lib/hanok.html`](lib/hanok.html) | korea, nature, animated |
+| 006 | 산호초 바닷속 (Coral Reef) | [`lib/ocean.html`](lib/ocean.html) | ocean, animal, animated |
+| 007 | 겨울밤 오두막 (Winter Cabin) | [`lib/winter.html`](lib/winter.html) | winter, night, animated |
+| 008 | 미니 행성 (Tiny Planet) | [`lib/tinyplanet.html`](lib/tinyplanet.html) | space, animated |
 
 ## Project structure
 
