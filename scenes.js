@@ -1124,6 +1124,7 @@ window.VOXEL_SCENES = [
     },
     {
         file: 'lib/nightmarket.html',
+        surfacePreview: true,
         index: '020',
         title: '골목 야시장',
         desc: '홍등이 흔들리는 밤 골목 — 어묵 김이 피어오르는 포장마차 세 곳과 깜빡이는 네온 간판.',

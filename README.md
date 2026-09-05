@@ -138,3 +138,26 @@ npm test
   implementations across 4,000 randomized operations per variant.
 - `scenes.test.mjs` — manifest integrity, deterministic `preview3d` output,
   local-only importmaps, and index.html script syntax.
+
+
+## Night market rendering
+
+The night market opts into `lib/voxel-surface.js`. It compiles solid, unit-sized
+voxels into exposed faces, bakes corner ambient occlusion into linear vertex
+colors, and groups geometry by spatial chunk and material. It does not merge
+adjacent faces, change the voxel map, or replace the original instancing API.
+Use `buildVoxelMesh` for separated blocks and editor instance picking. The
+surface compiler assumes opaque solids; glass bottles use glossy opaque shading.
+
+`lib/nightmarket-lighting.js` builds a small procedural environment and one
+shared planar reflection for all puddles, using the vendored Three.js r160
+Reflector (MIT, `lib/vendor/LICENSE.three`). Standard quality uses a 256px
+reflection target at up to 15 captures/second, 1024px shadows and DPR up to 1.25;
+high quality uses 512px / 30 captures, 2048px shadows and DPR up to 2. Static
+shadows are cached. These are rendering budgets, not measured frame rates.
+
+- `voxel-surface.test.mjs` checks exposed-face counts, triangle winding,
+  ambient occlusion, material boundaries, chunking and legacy compatibility.
+- `nightmarket.test.mjs` executes the complete scene with real Three.js geometry
+  and substituted DOM/GPU interfaces, including quality changes and resizing.
+  It does not validate GPU shader compilation, visual appearance or device FPS.

@@ -379,6 +379,7 @@
         // 라이브 3D 프리뷰 — 실패해도 위의 SVG 폴백이 그대로 유지되는 점진적 향상 레이어
         import * as THREE from 'three';
         import { VoxelBuilder, buildVoxelMesh } from './lib/voxel-engine.js';
+        import { buildVoxelSurface } from './lib/voxel-surface.js';
 
         const scenes = window.VOXEL_SCENES || [];
         const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -417,7 +418,9 @@
                     }
                     const R = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2 || 10;
 
-                    const mesh = buildVoxelMesh(THREE, v, { size: 0.92, roughness: 0.8, metalness: 0.06 });
+                    const mesh = this.def.surfacePreview
+                        ? buildVoxelSurface(THREE, v)
+                        : buildVoxelMesh(THREE, v, { size: 0.92, roughness: 0.8, metalness: 0.06 });
                     mesh.castShadow = false;
                     mesh.receiveShadow = false;
                     mesh.position.set(-(minX + maxX) / 2, -(minY + maxY) / 2, -(minZ + maxZ) / 2);

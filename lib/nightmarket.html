@@ -37,6 +37,33 @@
         .instructions { font-size: 13.5px; color: #f5dbe0; line-height: 1.8;
             background: rgba(0,0,0,0.26); padding: 12px 15px; border-radius: 8px; }
         .instructions span { color: #fff; font-weight: bold; }
+        canvas { display: block; touch-action: none; }
+        #ui { bottom: 24px; left: 24px; padding: 16px 20px; max-width: 290px; }
+        .title { font-size: 24px; color: #ffe1b1; }
+        .subtitle { font-size: 12px; margin: 7px 0 0; color: #c6af9f; font-weight: 400; }
+        .instructions { display: none; }
+        #scene-tools { position: absolute; z-index: 20; top: 20px; left: 24px; right: 24px;
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        #scene-tools a, #scene-tools button, #scene-tools select { font: inherit; font-size: 13px;
+            color: #f4e8db; background: rgba(23, 25, 37, .85); border: 1px solid #66606a;
+            border-radius: 10px; min-height: 44px; padding: 0 14px; cursor: pointer;
+            text-decoration: none; display: inline-flex; align-items: center; }
+        #scene-tools a { margin-right: auto; }
+        #scene-tools button[aria-pressed="true"] { color: #1b1b25; background: #efc693; }
+        #scene-tools :focus-visible { outline: 2px solid #ffe3ad; outline-offset: 3px; }
+        #loader a { color: #ffe1b1; }
+        #loader p { text-align: center; padding: 0 24px; }
+        @media(max-width: 600px) {
+            #ui { left: 16px; bottom: 18px; padding: 12px 16px; }
+            .title { font-size: 20px; }
+            #scene-tools { top: 12px; left: 12px; right: 12px; gap: 6px; }
+            #scene-tools a, #scene-tools button, #scene-tools select { padding: 0 10px; font-size: 12px; }
+            #loader h1 { font-size: 23px; letter-spacing: 2px; }
+        }
+        @media(prefers-reduced-motion: reduce) {
+            .cube { animation: none; }
+            #ui { animation: none; opacity: 1; transform: none; }
+        }
     </style>
     <script type="importmap">
         { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
@@ -48,9 +75,17 @@
         <h1>복셀 조각 중...</h1>
         <p>골목에 홍등을 내걸고 어묵 국물을 끓이는 중입니다</p>
     </div>
+    <nav id="scene-tools" aria-label="장면 설정">
+        <a href="../index.html">← 갤러리</a>
+        <button id="rotate" type="button" aria-pressed="false">자동 회전</button>
+        <button id="reset-view" type="button">기본 시점</button>
+        <select id="quality" aria-label="그래픽 품질">
+            <option value="standard">표준 화질</option><option value="high">고화질</option>
+        </select>
+    </nav>
     <div id="ui">
         <div class="title">골목 야시장</div>
-        <div class="subtitle">홍등 줄 · 포장마차 세 곳 · 어묵 김 · 네온 간판</div>
+        <div class="subtitle">비 갠 저녁, 골목의 작은 불빛들</div>
         <div class="instructions">
             <span>🖱️ 좌클릭:</span> 카메라 회전<br>
             <span>🖱️ 우클릭:</span> 화면 이동<br>
@@ -61,54 +96,75 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+        import { VoxelBuilder } from './voxel-engine.js';
+        import { buildVoxelSurface } from './voxel-surface.js';
+        import { createMarketEnvironment, createPuddles } from './nightmarket-lighting.js';
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x1c1122);
-        scene.fog = new THREE.FogExp2(0x261527, 0.0038);
+        scene.background = new THREE.Color(0x141b2c);
+        scene.fog = new THREE.FogExp2(0x273044, 0.003);
 
         const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1200);
-        camera.position.set(-58, 40, 86);
+        camera.position.set(-82, 57, 116);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let highQuality = !window.matchMedia('(pointer: coarse)').matches && window.innerWidth >= 900;
+        let renderer;
+        try {
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        } catch (error) {
+            document.querySelector('#loader h1').textContent = '3D 화면을 열 수 없습니다';
+            document.querySelector('#loader p').innerHTML = '브라우저의 그래픽 가속을 켠 뒤 다시 열어주세요.<br><a href="../index.html">갤러리로 돌아가기</a>';
+            document.querySelector('.cube-wrapper').style.display = 'none';
+            throw error;
+        }
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, highQuality ? 2 : 1.25));
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.45;
+        renderer.toneMappingExposure = 1.12;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        const environment = createMarketEnvironment(renderer);
+        scene.environment = environment.texture;
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
-        controls.target.set(0, 13, -2);
+        controls.target.set(0, 13, -6);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.maxDistance = 240;
+        controls.maxDistance = 360;
         controls.minDistance = 22;
-        controls.maxPolarAngle = Math.PI / 2 + 0.05;
-        controls.autoRotate = true;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05;
+        controls.autoRotate = false;
         controls.autoRotateSpeed = 0.7;
 
         // 달빛 + 포장마차의 온기 + 네온
-        scene.add(new THREE.AmbientLight(0x8a6272, 1.05));
-        scene.add(new THREE.HemisphereLight(0x8a6288, 0x2c2028, 0.9));
-        const moonLight = new THREE.DirectionalLight(0x9fb0e8, 1.05);
+        scene.add(new THREE.AmbientLight(0x879abd, 0.28));
+        scene.add(new THREE.HemisphereLight(0xa4bce0, 0x312831, 0.65));
+        const moonLight = new THREE.DirectionalLight(0xb7c9ea, 1.6);
         moonLight.position.set(60, 95, 55);
         moonLight.castShadow = true;
-        moonLight.shadow.mapSize.set(4096, 4096);
-        const d = 110;
+        moonLight.shadow.mapSize.set(highQuality ? 2048 : 1024, highQuality ? 2048 : 1024);
+        const d = 95;
         moonLight.shadow.camera.left = -d; moonLight.shadow.camera.right = d;
         moonLight.shadow.camera.top = d; moonLight.shadow.camera.bottom = -d;
         moonLight.shadow.camera.near = 10; moonLight.shadow.camera.far = 400;
-        moonLight.shadow.bias = -0.0005;
+        moonLight.shadow.bias = -0.00015;
+        moonLight.shadow.normalBias = .12;
         scene.add(moonLight);
-        const warmLight = new THREE.PointLight(0xff9a4a, 3.6, 120, 1.6);
+        const warmLight = new THREE.PointLight(0xffad67, 100, 55, 1.4);
         warmLight.position.set(0, 15, -4);
         scene.add(warmLight);
-        const neonLight = new THREE.PointLight(0xff5064, 2.4, 60, 2);
+        const neonLight = new THREE.PointLight(0xff6276, 70, 50, 1.4);
         neonLight.position.set(-2, 28, -18);
         scene.add(neonLight);
 
+        for (const x of [-38, 34]) {
+            const lamp = new THREE.PointLight(0xffbd7f, 100, 48, 1.4);
+            lamp.position.set(x, 11, -5);
+            scene.add(lamp);
+        }
         const P = {
             asphalt: 0x2e2836, line: 0x272230, lightSpot: 0x3a3344,
             road: 0x232029, roadLine: 0x8a8072, curb: 0x565060,
@@ -146,7 +202,7 @@
                         else if (rng() > 0.96) c = 0x2a2630;
                     } else {
                         c = (x % 7 === 0 || z % 7 === 0) ? P.line : P.asphalt; // 보도블록 줄눈
-                        if (rng() > 0.93) c = P.lightSpot;
+                        if (Math.sin(x * .21) + Math.cos(z * .17) > 1.15) c = P.lightSpot;
                     }
                     v.add(x, 0, z, c);
                 }
@@ -190,6 +246,20 @@
             { cx: 34, type: 'jeon', a: 0x2f9e63, b: 0xf2ead8, tarp: 0x257a4c, signBg: 0x203a2c, signFg: 0xd8ffb0, shirt: 0x9c5a4a, apron: 0xf2f2f2, hat: 0x2a2a34 },
         ];
 
+        const faceDetails = new THREE.Group();
+        scene.add(faceDetails);
+        const detailGeometry = new THREE.BoxGeometry(1, 1, 1);
+        const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x30242a, roughness: .8 });
+        const blushMaterial = new THREE.MeshStandardMaterial({ color: 0xca886e, roughness: .9 });
+        function addFace(x, y, z) {
+            for (const side of [-1, 1]) {
+                const eye = new THREE.Mesh(detailGeometry, eyeMaterial);
+                eye.scale.set(.3, .4, .25); eye.position.set(x + side * .65, y + .2, z);
+                const cheek = new THREE.Mesh(detailGeometry, blushMaterial);
+                cheek.scale.set(.45, .2, .18); cheek.position.set(x + side * .85, y - .35, z - .08);
+                faceDetails.add(eye, cheek);
+            }
+        }
         function vendor(x, z, shirt, apron, hat) {
             v.box(x - 1, 1, z, x - 1, 4, z, 0x2c2c36);
             v.box(x + 1, 1, z, x + 1, 4, z, 0x2c2c36);
@@ -200,8 +270,27 @@
             v.sphere(x, 11, z, 1.6, P.skin);
             v.cylinderY(x, 12, 12, z, 1.8, hat);
             v.cylinderY(x, 13, 13, z, 1.2, hat);
+            // Apron pocket, hands and shoes give the small silhouette readable joints.
+            v.add(x, 6, z + 2, 0xb9a999);
+            v.add(x - 2, 6, z + 1, P.skin); v.add(x + 2, 6, z + 1, P.skin);
+            v.add(x - 1, 1, z + 1, 0x23212a); v.add(x + 1, 1, z + 1, 0x23212a);
+            addFace(x, 11, z + 1.55);
         }
 
+        function signTexture(label, ink) {
+            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 160;
+            const ctx = canvas.getContext('2d');
+            const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+            function draw() {
+                ctx.clearRect(0, 0, 512, 160); ctx.fillStyle = ink;
+                ctx.font = '700 94px "Noto Sans KR", sans-serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(label, 256, 82, 460); texture.needsUpdate = true;
+            }
+            draw();
+            document.fonts.load('700 94px "Noto Sans KR"').then(draw).catch(() => {});
+            return texture;
+        }
         function stall(s) {
             const cx = s.cx;
             // 기둥 4개
@@ -210,6 +299,9 @@
             // 카운터 (방수포 앞면 + 나무 상판)
             v.box(cx - 8, 1, -11, cx + 8, 5, -8, s.tarp);
             v.box(cx - 8, 6, -12, cx + 8, 6, -7, P.counter);
+            for (let gx = cx - 8; gx <= cx + 8; gx++)
+                for (let gz = -12; gz <= -7; gz++)
+                    if (gz % 3 === 0 || (gx + gz * 5) % 13 === 0) v.add(gx, 6, gz, 0x927040);
             // 뒤 선반 + 병/그릇
             v.box(cx - 7, 8, -24, cx + 7, 8, -23, P.woodD);
             for (let i = 0; i < 6; i++) {
@@ -232,8 +324,10 @@
             v.box(cx - 5, 13, -8, cx - 5, 16, -8, P.post);
             v.box(cx + 5, 13, -8, cx + 5, 16, -8, P.post);
             v.box(cx - 6, 17, -8, cx + 6, 20, -7, s.signBg);
-            for (let i = 0; i < 3; i++)
-                v.box(cx - 4 + i * 3, 18, -6, cx - 3 + i * 3, 19, -6, s.signFg);
+            const signMap = signTexture({ eomuk: '어묵', bung: '붕어빵', jeon: '모둠전' }[s.type], '#ffe5b4');
+            const sign = new THREE.Mesh(new THREE.PlaneGeometry(11, 3.4),
+                new THREE.MeshBasicMaterial({ map: signMap, transparent: true, depthWrite: false }));
+            sign.position.set(cx, 18.5, -6.48); scene.add(sign);
             // 종목별 조리대
             if (s.type === 'eomuk') {
                 v.box(cx - 6, 7, -12, cx + 2, 9, -9, P.steel);           // 어묵 솥
@@ -378,10 +472,22 @@
         const lanternBodyGeo = new THREE.BoxGeometry(2.4, 3, 2.4);
         const lanternCapGeo = new THREE.BoxGeometry(1.5, 0.7, 1.5);
         const lanternTasselGeo = new THREE.BoxGeometry(0.5, 1.6, 0.5);
-        const lanternBodyMat = new THREE.MeshBasicMaterial({ color: 0xff4640 });
-        const lanternBodyMat2 = new THREE.MeshBasicMaterial({ color: 0xff7a3c });
+        const lanternBodyMat = new THREE.MeshStandardMaterial({ color: 0xe95135, emissive: 0xff5b22, emissiveIntensity: 1.35, roughness: .8 });
+        const lanternBodyMat2 = new THREE.MeshStandardMaterial({ color: 0xef9c4a, emissive: 0xff8e3c, emissiveIntensity: 1.15, roughness: .8 });
         const lanternCapMat = new THREE.MeshBasicMaterial({ color: 0xffc75c });
         const lanternTasselMat = new THREE.MeshBasicMaterial({ color: 0xffd84d });
+
+        const lanternRibMat = new THREE.MeshStandardMaterial({ color: 0x9b482b, roughness: .9 });
+        const glowCanvas = document.createElement('canvas'); glowCanvas.width = glowCanvas.height = 64;
+        const glowCtx = glowCanvas.getContext('2d');
+        const glow = glowCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        glow.addColorStop(0, 'rgba(255,154,69,.3)');
+        glow.addColorStop(.3, 'rgba(255,102,40,.12)'); glow.addColorStop(1, 'rgba(255,80,20,0)');
+        glowCtx.fillStyle = glow; glowCtx.fillRect(0, 0, 64, 64);
+        const glowTexture = new THREE.CanvasTexture(glowCanvas);
+        glowTexture.colorSpace = THREE.SRGBColorSpace;
+        const lanternHaloMat = new THREE.SpriteMaterial({ map: glowTexture, transparent: true,
+            blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
 
         function lanternString(x1, y1, z1, x2, y2, z2, sag, count) {
             const pt = (u) => [x1 + (x2 - x1) * u, y1 + (y2 - y1) * u - sag * 4 * u * (1 - u), z1 + (z2 - z1) * u];
@@ -400,6 +506,13 @@
                 const capB = new THREE.Mesh(lanternCapGeo, lanternCapMat); capB.position.y = -4;
                 const tassel = new THREE.Mesh(lanternTasselGeo, lanternTasselMat); tassel.position.y = -5.1;
                 g.add(body, capT, capB, tassel);
+                // Dark ribs retain the shape of a paper lantern within its glow.
+                for (const ry of [-1.5, -2.4, -3.3]) {
+                    const rib = new THREE.Mesh(lanternBodyGeo, lanternRibMat);
+                    rib.scale.set(1.02, .035, 1.02); rib.position.y = ry; g.add(rib);
+                }
+                const halo = new THREE.Sprite(lanternHaloMat);
+                halo.position.y = -2.4; halo.scale.set(9, 9, 1); g.add(halo);
                 g.userData = { phase: k * 0.65 + px * 0.03, amp: 0.1 + rng() * 0.1 };
                 lanternRoot.add(g);
                 lanterns.push(g);
@@ -418,7 +531,7 @@
         const steamGeo = new THREE.BoxGeometry(1, 1, 1);
         function makeSteam(x, y, z, count) {
             for (let i = 0; i < count; i++) {
-                const mat = new THREE.MeshBasicMaterial({ color: 0xe8ecf2, transparent: true, opacity: 0 });
+                const mat = new THREE.MeshBasicMaterial({ color: 0xe8ecf2, transparent: true, opacity: 0, depthWrite: false });
                 const m = new THREE.Mesh(steamGeo, mat);
                 m.userData = {
                     x: x + rng() * 3 - 1.5, z: z + rng() * 2 - 1, baseY: y,
@@ -451,9 +564,70 @@
         neonBox(15, 0.7, 0.7, -2, 22.6, nz, neonTubeMat);
         neonBox(0.7, 11.5, 0.7, -9.4, 28, nz, neonTubeMat);
         neonBox(0.7, 11.5, 0.7, 5.4, 28, nz, neonTubeMat);
-        for (let i = 0; i < 3; i++) neonBox(3.2, 6, 0.7, -6.4 + i * 4.4, 28, nz, neonTextMat);
+        neonTextMat.map = signTexture('야시장', '#fff1c9');
+        neonTextMat.depthWrite = false;
+        const neonLetters = new THREE.Mesh(new THREE.PlaneGeometry(14, 5), neonTextMat);
+        neonLetters.position.set(-2, 28, nz + .4); neonGroup.add(neonLetters);
 
-        scene.add(buildVoxelMesh(THREE, v, { size: 0.95, roughness: 0.88, metalness: 0.03 }));
+        const metalColors = new Set([P.steel, P.iron, 0x8890a4, 0x4a5560, 0x5a5262]);
+        const woodColors = new Set([P.post, P.counter, P.woodD, 0x927040, 0x8a6636, 0x74562c]);
+        const windowColors = new Set([0xffb35c, 0xffd88f, 0x8ad0e8]);
+        const wetColors = new Set([P.puddle, P.puddleHi]);
+        const world = buildVoxelSurface(THREE, v, {
+            materials: {
+                default: { roughness: .9, envMapIntensity: .22 },
+                wood: { roughness: .72, envMapIntensity: .35 },
+                metal: { roughness: .3, metalness: .78, envMapIntensity: 1.1 },
+                glass: { roughness: .14, metalness: .12, envMapIntensity: .85 },
+                enamel: { roughness: .33, metalness: .08, envMapIntensity: .6 },
+                wet: { roughness: .12, metalness: .18, envMapIntensity: .6 },
+                window: { roughness: .5, emissive: 0xffbd7c, emissiveIntensity: .5 },
+                moon: { roughness: 1, emissive: 0xffe4ab, emissiveIntensity: .6 },
+            },
+            materialFor(color, x, y, z) {
+                if (color === P.moon || color === P.star) return 'moon';
+                if (windowColors.has(color) && z < -30) return 'window';
+                if (wetColors.has(color) && y === 0) return 'wet';
+                if (metalColors.has(color)) return 'metal';
+                if (woodColors.has(color)) return 'wood';
+                if (color === P.soju) return 'glass';
+                if ([P.plate, P.tableTop, P.stoolB, P.stoolR].includes(color)) return 'enamel';
+                return 'default';
+            },
+        });
+        scene.add(world);
+        const puddles = createPuddles(v, wetColors, highQuality);
+        scene.add(puddles);
+        // These casters are static; moving lanterns/steam deliberately cast no shadows.
+        renderer.shadowMap.autoUpdate = false;
+        renderer.shadowMap.needsUpdate = true;
+
+        const quality = document.getElementById('quality');
+        quality.value = highQuality ? 'high' : 'standard';
+        quality.addEventListener('change', () => {
+            highQuality = quality.value === 'high';
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, highQuality ? 2 : 1.25));
+            const size = highQuality ? 2048 : 1024;
+            moonLight.shadow.mapSize.set(size, size);
+            if (moonLight.shadow.map) { moonLight.shadow.map.dispose(); moonLight.shadow.map = null; }
+            renderer.shadowMap.needsUpdate = true;
+            puddles.userData.setQuality(highQuality);
+        });
+        const rotate = document.getElementById('rotate');
+        rotate.addEventListener('click', () => {
+            controls.autoRotate = !controls.autoRotate;
+            rotate.setAttribute('aria-pressed', String(controls.autoRotate));
+        });
+        renderer.domElement.addEventListener('pointerdown', () => {
+            controls.autoRotate = false; rotate.setAttribute('aria-pressed', 'false');
+        });
+        function resetView() {
+            const distance = Math.max(1, Math.min(2.2, 1.15 / camera.aspect));
+            camera.position.set(-82 * distance, 13 + 44 * distance, -6 + 122 * distance);
+            controls.target.set(0, 13, -6); controls.update();
+        }
+        document.getElementById('reset-view').addEventListener('click', resetView);
+        resetView();
         setTimeout(() => {
             const loader = document.getElementById('loader');
             loader.style.opacity = '0';
@@ -461,9 +635,11 @@
         }, 200);
 
         const clock = new THREE.Clock();
+        let frame;
         function animate() {
-            requestAnimationFrame(animate);
-            const t = clock.getElapsedTime();
+            frame = requestAnimationFrame(animate);
+            const t = reducedMotion ? 0 : clock.getElapsedTime();
+            puddles.material.uniforms.time.value = t;
             // 홍등 진자 운동
             for (const g of lanterns) {
                 const u = g.userData;
@@ -479,22 +655,31 @@
                     u.baseY + u.rise * c,
                     u.z + Math.cos(t * 1.2 + u.phase * 7) * 0.6 * c);
                 p.scale.setScalar(0.7 + c * 2.2);
-                p.material.opacity = Math.sin(Math.min(c * 3, 1) * Math.PI / 2) * (1 - c) * 0.5;
+                p.material.opacity = Math.sin(Math.min(c * 3, 1) * Math.PI / 2) * (1 - c) * 0.22;
             }
-            // 네온 깜빡임 (가끔 뚝 꺼졌다 켜지는 스터터)
-            const buzz = Math.sin(t * 12.9) * Math.sin(t * 3.7) + Math.sin(t * 31.7) * 0.35;
-            const on = buzz > -1.1 ? 1 : 0.15;
-            const flick = on * (0.86 + 0.14 * Math.sin(t * 43));
+            // 느린 네온 밝기 변화
+            const flick = 0.94 + 0.06 * Math.sin(t * 1.3);
             neonTubeMat.opacity = 0.25 + 0.7 * flick;
             neonTextMat.opacity = 0.25 + 0.7 * flick;
-            neonLight.intensity = 2.4 * flick;
+            neonLight.intensity = 65 + 5 * flick;
             // 화덕 온기 흔들림
-            warmLight.intensity = 3.4 + Math.sin(t * 6.3) * 0.35 + Math.sin(t * 13.1) * 0.15;
-            controls.target.y = 13 + Math.sin(t * 0.9) * 0.8;
+            warmLight.intensity = 100 + Math.sin(t * 2.3) * 3;
+
             controls.update();
             renderer.render(scene, camera);
         }
         animate();
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) { cancelAnimationFrame(frame); clock.stop(); }
+            else { clock.start(); animate(); }
+        });
+        renderer.domElement.addEventListener('webglcontextlost', event => {
+            event.preventDefault(); cancelAnimationFrame(frame);
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '1'; loader.style.visibility = 'visible';
+            document.querySelector('#loader h1').textContent = '그래픽 연결이 끊겼습니다';
+            document.querySelector('#loader p').textContent = '화면을 새로고침하면 다시 열 수 있습니다.';
+        });
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
