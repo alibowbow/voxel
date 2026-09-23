@@ -39,6 +39,7 @@ A browser voxel editor anyone can use:
 | 018 | 해적선과 크라켄 (Pirate Ship & Kraken) | [`lib/pirate.html`](lib/pirate.html) | ocean, fantasy, animated |
 | 019 | 공룡 계곡 (Dinosaur Valley) | [`lib/dino.html`](lib/dino.html) | animal, nature, animated |
 | 020 | 골목 야시장 (Night Market Alley) | [`lib/nightmarket.html`](lib/nightmarket.html) | city, night, animated |
+| 021 | 은하수 아래 등대 (Lighthouse beneath the Milky Way) | [`lib/lighthouse.html`](lib/lighthouse.html) | ocean, night, animated |
 
 ## Project structure
 

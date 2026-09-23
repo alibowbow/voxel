@@ -1185,68 +1185,60 @@ window.VOXEL_SCENES = [
         },
     },
     {
-        file: 'lib/worldtree.html',
+        file: 'lib/lighthouse.html',
         index: '021',
-        title: '천공의 세계수',
-        desc: '황혼의 하늘에 떠 있는 부유섬 위, 빛나는 수관과 폭포를 두른 거대한 세계수 — 반딧불이가 맴돌고 작은 섬들이 곁을 떠다닙니다.',
+        title: '은하수 아래 등대',
+        desc: '은하수가 아치를 그리는 밤바다 — 등대 불빛이 돌고, 파도 마루마다 야광 플랑크톤이 반짝이며, 이따금 별똥별이 떨어집니다.',
         badge: 'Animated 3D',
-        gradient: 'radial-gradient(circle at 60% 32%, #3a2a66 0%, #241a4a 45%, #140d30 100%)',
-        accent: '#8fe8c8',
-        cta: '#ffd873',
-        tags: ['fantasy', 'nature', 'animated'],
+        gradient: 'linear-gradient(180deg, #050816 0%, #0a1230 45%, #0e2c52 100%)',
+        accent: '#ffe7a0',
+        cta: '#6fe8ff',
+        tags: ['ocean', 'night', 'animated'],
         icon: '🌌',
         preview3d(v) {
-            const C = { soil: 0x4a3728, soilD: 0x38291d, grass: 0x4c7d5b, grassL: 0x64a074,
-                bark: 0x6b4a30, barkD: 0x4c3420, leaf: 0x2f8570, leafD: 0x24685a, leafL: 0x49ac90,
-                gold: 0xffd873, pink: 0xff9ecb, cyan: 0x8fe8ff, water: 0x8fdcee, foam: 0xeafcff,
-                torii: 0xdd4f3b, root: 0x5a4130, crystal: 0x9d7dff };
-            // 부유섬 (눈물방울 원뿔)
-            const TOP = 2, TIP = -12, R = 10;
-            for (let y = TOP; y >= TIP; y--) {
-                const t = (TOP - y) / (TOP - TIP);
-                const r = R * Math.pow(1 - t, 0.72);
-                if (r < 0.6) { v.add(0, y, 0, C.soilD); continue; }
-                const rr = r * r, b = Math.ceil(r);
-                for (let x = -b; x <= b; x++) for (let z = -b; z <= b; z++) {
-                    const dd = x * x + z * z;
-                    if (dd > rr) continue;
-                    v.add(x, y, z, y === TOP ? ((x + z) % 3 ? C.grass : C.grassL)
-                        : (t > 0.6 && (x * 5 + z) % 7 === 0 ? C.crystal : ((x + y + z) % 2 ? C.soil : C.soilD)));
-                }
+            const C = { deep: 0x0e2c52, mid: 0x174a78, crest: 0x4d95c4, glow: 0x4ff5e0,
+                rock: 0x56607a, rockD: 0x3f475e, grass: 0x3f6a4c, sand: 0xb8a882,
+                red: 0xc8323a, white: 0xeef0f4, iron: 0x2a2f3a, glass: 0xfff2b8,
+                wall: 0xe6e0d2, roof: 0x34405a, win: 0xffc870, wood: 0x6b4a30, beam: 0xfff0b8 };
+            // 물결 모양 바다 원반 (결정론적 패턴)
+            for (let x = -14; x <= 14; x++) for (let z = -14; z <= 14; z++) {
+                const d = Math.hypot(x, z);
+                if (d > 14) continue;
+                const w = Math.sin(x * 0.7) + Math.cos(z * 0.6);
+                const c = d < 9 && w > 1.2 ? C.glow : (w > 0.9 ? C.crest : (w > -0.3 ? C.mid : C.deep));
+                v.add(x, w > 0.9 ? 1 : 0, z, c);
             }
-            // 뿌리 몇 가닥
-            for (let i = 0; i < 6; i++) {
-                const a = i / 6 * Math.PI * 2;
-                v.line(Math.cos(a) * 3, 2, Math.sin(a) * 3, Math.cos(a) * 4, -8, Math.sin(a) * 4, 0.6, C.root);
+            // 계단식 절벽 섬
+            for (let x = -7; x <= 7; x++) for (let z = -7; z <= 7; z++) {
+                const d = Math.hypot(x, z);
+                if (d > 7) continue;
+                const h = Math.min(6, Math.floor((7 - d) * 2));
+                for (let y = 0; y <= h; y++)
+                    v.add(x, y, z, y === h ? (h <= 1 ? C.sand : C.grass) : ((y % 3) ? C.rock : C.rockD));
             }
-            // 세계수 몸통 + 버팀뿌리
-            for (let y = 3; y <= 16; y++) {
-                const r = 2.6 * (1 - (y - 3) / 13) + 0.9;
-                v.cylinderY(0, y, y, 0, r, y % 3 === 0 ? C.barkD : C.bark);
+            // 줄무늬 등대
+            for (let y = 7; y <= 18; y++) {
+                const r = 2.2 - (y - 7) * 0.06;
+                v.cylinderY(1, y, y, -1, r, Math.floor((y - 7) / 3) % 2 ? C.white : C.red);
             }
-            for (let i = 0; i < 6; i++) {
-                const a = i / 6 * Math.PI * 2;
-                v.line(0, 4, 0, Math.cos(a) * 5, 3, Math.sin(a) * 5, 0.7, C.barkD);
+            v.cylinderY(1, 19, 19, -1, 2.6, C.iron);
+            v.cylinderY(1, 20, 21, -1, 1.4, C.glass);
+            v.cylinderY(1, 22, 22, -1, 2, C.red);
+            v.cylinderY(1, 23, 23, -1, 1, C.red);
+            v.add(1, 24, -1, C.iron);
+            // 빛줄기 (양방향)
+            for (let i = 2; i <= 13; i++) {
+                v.add(1 + i, 21 - Math.round(i * 0.08), -1, C.beam);
+                v.add(1 - i, 21 - Math.round(i * 0.08), -1, C.beam);
+                if (i > 6) { v.add(1 + i, 21, 0, C.beam); v.add(1 - i, 21, -2, C.beam); }
             }
-            // 수관 (겹친 덩어리)
-            const blobs = [[0, 18, 0, 6], [5, 16, 3, 4], [-5, 16, -2, 4], [3, 20, -4, 3.5],
-                [-4, 20, 4, 3.5], [0, 23, 0, 3.5], [6, 19, -3, 3]];
-            for (const [bx, by, bz, r] of blobs) {
-                v.sphere(bx, by, bz, r, C.leaf);
-                v.sphere(bx + 1, by - 1, bz + 1, r * 0.6, C.leafD);
-                v.sphere(bx - 1, by + 1, bz - 1, r * 0.5, C.leafL);
-            }
-            // 빛나는 잎 (결정론적 패턴)
-            const glow = [[0, 24, 0, C.gold], [4, 21, -3, C.pink], [-5, 18, 3, C.cyan],
-                [6, 17, 2, C.gold], [-4, 22, -3, C.cyan], [2, 19, 5, C.pink], [-6, 20, -1, C.gold],
-                [3, 23, 2, C.cyan], [-2, 17, -5, C.pink]];
-            for (const [gx, gy, gz, c] of glow) v.add(gx, gy, gz, c);
-            // 붉은 토리이
-            v.box(-4, 2, 8, -4, 9, 8, C.torii); v.box(4, 2, 8, 4, 9, 8, C.torii);
-            v.box(-5, 10, 8, 5, 10, 8, 0xb23829); v.box(-4, 8, 8, 4, 8, 8, C.torii);
-            // 폭포 한 줄기
-            for (let y = 2; y >= -10; y--) v.add(-9, y, 2 + Math.round((2 - y) * 0.15), (y % 2 ? C.water : C.foam));
-            v.sphere(-9, 2, 2, 1.4, C.foam);
+            // 오두막
+            v.box(-5, 7, 2, -2, 9, 4, C.wall);
+            v.box(-6, 10, 1, -1, 10, 5, C.roof); v.box(-6, 11, 2, -1, 11, 4, C.roof);
+            v.add(-4, 8, 5, C.win); v.add(-2, 8, 5, C.win);
+            // 부두 + 가로등
+            for (let z = 7; z <= 12; z++) v.box(0, 2, z, 1, 2, z, C.wood);
+            v.box(1, 3, 12, 1, 6, 12, C.iron); v.add(1, 7, 12, C.glass);
         },
     },
 ];
