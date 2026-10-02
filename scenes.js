@@ -1242,4 +1242,69 @@ window.VOXEL_SCENES = [
             v.box(1, 3, 12, 1, 6, 12, C.iron); v.add(1, 7, 12, C.glass);
         },
     },
+    {
+        file: 'lib/paddleboard.html',
+        index: '022',
+        title: '노을빛 패들보드',
+        desc: '해질녘 도시 앞바다 — 황금빛 윤슬이 반짝이는 수면 위에서 패들보드에 앉아 환호하는 세 사람. 역광 실루엣 스카이라인과 저녁 갈매기까지.',
+        badge: 'Animated 3D',
+        gradient: 'linear-gradient(180deg, #b3c2d0 0%, #f0c184 48%, #2a3844 100%)',
+        accent: '#ffcf7a',
+        cta: '#8fc4ff',
+        tags: ['ocean', 'city', 'sunset', 'animated'],
+        icon: '🏄',
+        preview3d(v) {
+            const C = { deep: 0x24323e, mid: 0x33444f, crest: 0x56697a, gold: 0xffc45e, glint: 0xfff0c2,
+                rail: 0x3a79c9, railD: 0x2a5ca3, deck: 0xd6dfe8, pad: 0x8da3b6, vest: 0x0f1116, shirt: 0x1d1d26,
+                skin: 0xc48f6c, hair: 0x15131a, shaft: 0xd4dbe1, blade: 0x2d6cc0, capBlue: 0x2f5fb8, capBeige: 0xc9af80,
+                tower: 0x767b8c, towerL: 0x8a8fa2, roof: 0x575c6c, mtn: 0x5a6472, wall: 0x4e535c, sun: 0xfff1c4, sunD: 0xffc872 };
+            // 바다 원반 + 해를 향한 황금빛 윤슬 띠 (결정론적)
+            for (let x = -15; x <= 15; x++) for (let z = -15; z <= 15; z++) {
+                const d = Math.hypot(x, z);
+                if (d > 15) continue;
+                const w = Math.sin(x * 0.8) + Math.cos(z * 0.7);
+                let c = w > 0.9 ? C.crest : (w > -0.3 ? C.mid : C.deep);
+                const g = Math.sin(x * 1.9 + z * 1.3) * Math.sin(z * 2.3 - x * 0.7);
+                if (Math.abs(x - 3) <= 1 + Math.max(0, -z) * 0.1 && g > 0.15) c = g > 0.6 ? C.glint : C.gold;
+                v.add(x, w > 0.9 ? 1 : 0, z, c);
+            }
+            // 보드 두 장 + 앉은 사람
+            const boardAt = (bx, bz, rail) => {
+                for (let x = -2; x <= 2; x++) for (let z = -6; z <= 6; z++) {
+                    const e = (x * x) / 6.2 + (z * z) / 40;
+                    if (e > 1) continue;
+                    v.add(bx + x, 1, bz + z, C.railD);
+                    v.add(bx + x, 2, bz + z, e > 0.6 || Math.abs(x) === 2 ? rail : (Math.abs(z) <= 3 ? C.pad : C.deck));
+                }
+            };
+            const person = (bx, bz, pose, cap) => {
+                v.box(bx - 2, 3, bz - 1, bx + 2, 3, bz + 1, C.shirt);          // 책상다리
+                v.box(bx - 1, 4, bz - 1, bx + 1, 7, bz, C.vest);               // 몸통
+                v.box(bx - 1, 8, bz - 1, bx + 1, 10, bz + 1, C.skin);          // 머리
+                v.box(bx - 1, 11, bz - 1, bx + 1, 11, bz + 1, cap ?? C.hair);
+                if (cap) v.box(bx - 1, 11, bz + 2, bx + 1, 11, bz + 2, cap);
+                if (pose === 'overhead') {
+                    v.box(bx - 3, 8, bz, bx - 3, 11, bz, C.shirt); v.box(bx + 3, 8, bz, bx + 3, 11, bz, C.shirt);
+                    v.box(bx - 7, 12, bz, bx + 6, 12, bz, C.shaft);
+                    v.box(bx - 9, 11, bz, bx - 8, 13, bz, C.blade);
+                } else {
+                    v.box(bx - 3, 8, bz, bx - 3, 11, bz, C.shirt); v.add(bx - 3, 12, bz, C.skin);
+                    v.add(bx + 2, 4, bz + 1, C.shirt);
+                    for (let i = -5; i <= 4; i++) v.add(bx + i, 4 + Math.round((i + 5) * 0.3), bz + 2 - Math.round((i + 5) * 0.3), C.shaft);
+                }
+            };
+            boardAt(4, 3, C.rail); person(4, 3, 'overhead', null);
+            boardAt(-6, -3, C.rail); person(-6, -3, 'vsign', C.capBeige);
+            // 뒤편: 방파제 + 아파트 스카이라인 + 산
+            v.box(-15, 0, -14, 15, 1, -13, C.wall);
+            for (let x = -14; x <= -2; x += 3) {
+                const h = 5 + ((x * 7) % 5 + 5) % 5;
+                v.box(x, 1, -15, x + 1, 1 + h, -14, (x / 3) % 2 ? C.tower : C.towerL);
+                v.add(x, 2 + h, -15, C.roof);
+            }
+            for (let x = 2; x <= 14; x++) { const h = 2 + Math.round(Math.sin(x * 0.5) * 2 + 2); v.box(x, 1, -15, x, 1 + h, -14, C.mtn); }
+            // 지평선 위의 해
+            v.sphere(6, 11, -15, 2.2, C.sun); v.ringY(6, 11, -15, 3.4, 0.5, C.sunD);
+        },
+    },
 ];

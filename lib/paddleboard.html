@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복셀 마스터피스: 노을빛 패들보드</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: linear-gradient(#b3c2d0 0%, #e9c89a 55%, #2b3a48 100%);
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; }
+        body::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at 60% 40%, transparent 50%, rgba(20, 16, 10, 0.45) 135%);
+            pointer-events: none; z-index: 5; }
+        #loader { position: absolute; inset: 0; background: #1d2630; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999; color: white;
+            transition: opacity 1.2s ease, visibility 1.2s ease; }
+        .cube-wrapper { perspective: 800px; margin-bottom: 30px; }
+        .cube { width: 50px; height: 50px; background: #ffb95c;
+            animation: flip 1.2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 28px rgba(255, 185, 92, 0.8); border-radius: 4px; }
+        @keyframes flip {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            50% { transform: rotateX(-180.1deg) rotateY(0deg); background: #3a79c9; box-shadow: 0 0 28px rgba(58, 121, 201, 0.8); }
+            100% { transform: rotateX(-180deg) rotateY(-179.9deg); } }
+        #loader h1 { font-weight: 900; letter-spacing: 5px; font-size: 2rem; margin: 0; }
+        #loader p { color: #b8c2cc; font-size: 1rem; margin-top: 10px; }
+        #ui { position: absolute; bottom: 40px; left: 40px; background: rgba(18, 22, 32, 0.55);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 25px 35px; border-radius: 16px; border: 1px solid rgba(255, 220, 170, 0.22);
+            color: #fff; box-shadow: 0 15px 35px rgba(0,0,0,0.4); z-index: 10; pointer-events: none;
+            max-width: 440px; opacity: 0; transform: translateY(20px);
+            animation: slideUp 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) 1.4s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .title { font-size: 32px; font-weight: 900; color: #ffcf7a; letter-spacing: 1.4px; margin-bottom: 5px; line-height: 1.2; }
+        .subtitle { font-size: 15px; color: #8fc4ff; font-weight: 700; margin-bottom: 20px; }
+        .instructions { font-size: 13.5px; color: #e8edf3; line-height: 1.8;
+            background: rgba(0,0,0,0.28); padding: 12px 15px; border-radius: 8px; }
+        .instructions span { color: #fff; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+</head>
+<body>
+    <div id="loader">
+        <div class="cube-wrapper"><div class="cube"></div></div>
+        <h1>복셀 조각 중...</h1>
+        <p>노을 지는 바다 위에 패들보드를 띄우고 있습니다</p>
+    </div>
+    <div id="ui">
+        <div class="title">노을빛 패들보드</div>
+        <div class="subtitle">황금빛 윤슬 · 출렁이는 바다 · 도시 스카이라인 · 저녁 갈매기</div>
+        <div class="instructions">
+            <span>🖱️ 좌클릭:</span> 카메라 회전<br>
+            <span>🖱️ 우클릭:</span> 화면 이동<br>
+            <span>🖱️ 스크롤:</span> 화면 확대/축소
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VoxelBuilder, buildVoxelMesh } from './voxel-engine.js';
+
+        // ==========================================
+        // 1. 씬 · 렌더러 · 카메라 (해질녘, 해를 마주 보는 역광)
+        // ==========================================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xe6c08f);
+        scene.fog = new THREE.Fog(0xe9c594, 70, 240);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 2400);
+        camera.position.set(-2, 9, 92);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(3, 4, -30);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 170;
+        controls.minDistance = 30;
+        controls.maxPolarAngle = Math.PI / 2 - 0.04;    // 수면 아래로는 내려가지 않게
+        controls.minPolarAngle = 0.7;
+        controls.minAzimuthAngle = -1.05;               // 도시·해가 항상 정면에 오도록
+        controls.maxAzimuthAngle = 1.05;
+
+        // 해 방향 (오른쪽 위, 낮게 걸린 노을)
+        const SUN_AZ = 0.34, SUN_EL = 0.17;
+        const sunDir = new THREE.Vector3(Math.sin(SUN_AZ) * Math.cos(SUN_EL), Math.sin(SUN_EL), -Math.cos(SUN_AZ) * Math.cos(SUN_EL));
+
+        scene.add(new THREE.AmbientLight(0x8f93a4, 0.55));
+        scene.add(new THREE.HemisphereLight(0xf3cf9c, 0x26323e, 0.7));
+        const sun = new THREE.DirectionalLight(0xffcf8a, 1.4);          // 역광 (실루엣)
+        sun.position.copy(sunDir).multiplyScalar(140).add(new THREE.Vector3(0, 0, -20));
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        const d = 60;
+        sun.shadow.camera.left = -d; sun.shadow.camera.right = d;
+        sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
+        sun.shadow.camera.near = 10; sun.shadow.camera.far = 400;
+        sun.shadow.bias = -0.0006;
+        scene.add(sun);
+        const fill = new THREE.DirectionalLight(0xffe2b8, 0.28);         // 카메라 쪽 약한 보조광
+        fill.position.set(-20, 30, 80);
+        scene.add(fill);
+
+        function mulberry32(seed) {
+            return function () {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        const rng = mulberry32(20261002);
+        const pick = (...cs) => cs[Math.floor(rng() * cs.length)];
+
+        function softSprite() {
+            const c = document.createElement('canvas');
+            c.width = c.height = 64;
+            const g = c.getContext('2d');
+            const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gr.addColorStop(0, 'rgba(255,255,255,1)');
+            gr.addColorStop(0.25, 'rgba(255,255,255,0.8)');
+            gr.addColorStop(0.55, 'rgba(255,255,255,0.2)');
+            gr.addColorStop(1, 'rgba(255,255,255,0)');
+            g.fillStyle = gr;
+            g.fillRect(0, 0, 64, 64);
+            return new THREE.CanvasTexture(c);
+        }
+        const sprite = softSprite();
+        function glow(color, sx, sy, opacity) {
+            const s = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: sprite, color, transparent: true, opacity, fog: false,
+                blending: THREE.AdditiveBlending, depthWrite: false }));
+            s.scale.set(sx, sy, 1);
+            return s;
+        }
+
+        // ==========================================
+        // 2. 팔레트
+        // ==========================================
+        const P = {
+            boardBlue: 0x3a79c9, boardBlueD: 0x2a5ca3, deck: 0xd6dfe8, deckD: 0xb4c2ce, pad: 0x8da3b6,
+            skin: 0xc48f6c, skinD: 0xa6735a, hair: 0x15131a, shirt: 0x1d1d26, shirtD: 0x131319,
+            vest: 0x0f1116, strap: 0x2d313c, eye: 0x1a1618, teeth: 0xf3ece2,
+            capBeige: 0xc9af80, capBlue: 0x2f5fb8, capBrimB: 0x1e3f7e, hat: 0xe2d4bb, yellow: 0xe6c13a, shorts: 0x2a2d36,
+            shaft: 0xd4dbe1, blade: 0x2d6cc0, bladeL: 0xeaf2f8, grip: 0x1d1f26,
+            tower: [0x767b8c, 0x80859a, 0x6b7082, 0x8a8fa2], towerD: 0x60657a, win: 0xa7acbb, roof: 0x575c6c,
+            mtn: 0x5a6472, mtnD: 0x4e5765, mtnL: 0x66707e, land: 0x474b55,
+            wall: 0x4e535c, wallTop: 0x6f747e, wallD: 0x3d414a,
+            boatY: 0xe0b322, boatD: 0x2a2d35, boatW: 0xd8dde3, gull: 0x2c2d33,
+        };
+
+        // ==========================================
+        // 3. 패들보드 · 사람 (부품 빌더)
+        // ==========================================
+        // 보드: 코(nose)가 +z (카메라 쪽), 사람은 카메라를 바라보고 책상다리로 앉음
+        function board(b, rail = P.boardBlue) {
+            for (let x = -4; x <= 4; x++)
+            for (let z = -12; z <= 12; z++) {
+                const e = (x * x) / (4.4 * 4.4) + (z * z) / (12.4 * 12.4);
+                if (e > 1) continue;
+                b.add(x, -1, z, P.boardBlueD);
+                const isRail = e > 0.6 || Math.abs(x) === 4;
+                let c = isRail ? rail : (Math.abs(x) <= 2 && Math.abs(z) <= 7 ? P.pad : P.deck);
+                if (!isRail && (z === -8 || z === 8 || z === 0)) c = P.deckD;
+                b.add(x, 0, z, c);
+            }
+            b.box(0, -3, -9, 0, -2, -8, P.boardBlueD);                    // 핀
+        }
+
+        function head(b, { cap = null, hat = false, glasses = false, smile = false } = {}) {
+            b.box(-2, 10, -2, 2, 14, 2, P.skin);
+            b.box(-2, 10, -2, 2, 14, -2, P.hair);                         // 뒷머리
+            b.box(-2, 14, -2, 2, 14, 2, P.hair);                          // 정수리
+            b.box(-2, 13, -2, -2, 14, 2, P.hair); b.box(2, 13, -2, 2, 14, 2, P.hair);   // 옆머리
+            b.add(-1, 12, 2, P.eye); b.add(1, 12, 2, P.eye);
+            if (smile) { b.add(-1, 10, 2, P.teeth); b.add(0, 10, 2, P.teeth); b.add(1, 10, 2, P.teeth); }
+            if (glasses) { b.add(-1, 12, 3, P.grip); b.add(1, 12, 3, P.grip); b.add(0, 12, 3, P.grip); }
+            if (cap) {
+                b.box(-2, 14, -2, 2, 15, 2, cap.color);
+                b.box(-2, 14, 3, 2, 14, 5, cap.brim ?? cap.color);
+            }
+            if (hat) {
+                b.box(-4, 14, -4, 4, 14, 4, P.hat);
+                b.box(-2, 15, -2, 2, 16, 2, P.hat);
+            }
+        }
+
+        // pose: 'vsign' | 'thumb' | 'overhead' | 'paddle'
+        function seated(b, pose, opts = {}) {
+            b.box(-3, 1, -1, 3, 2, 3, P.shirtD);                          // 책상다리
+            b.add(-3, 3, 1, P.shirtD); b.add(3, 3, 1, P.shirtD);          // 무릎
+            b.add(1, 2, 4, P.skinD); b.add(-1, 2, 4, P.skinD);            // 발
+            b.box(-3, 3, -2, 3, 8, 2, P.vest);                            // 몸통(구명조끼)
+            b.box(-2, 4, 2, 2, 4, 2, P.strap); b.box(-2, 6, 2, 2, 6, 2, P.strap); b.box(-2, 8, 2, 2, 8, 2, P.shirt);
+            b.add(0, 9, 0, P.skinD);                                      // 목
+            head(b, opts);
+
+            const armUp = (s) => { b.line(s * 3, 8, 0, s * 5, 12, 0, 0.9, P.shirt); b.sphere(s * 5, 13, 0, 0.9, P.skin); };
+            const armLap = (s) => { b.line(s * 3, 8, 0, s * 4, 5, 3, 0.9, P.shirt); b.sphere(s * 4, 4, 4, 0.9, P.skin); };
+            const lapPaddle = () => {
+                b.line(-8, 3, 5, 7, 7, -2, 0.5, P.shaft);
+                b.box(-11, 2, 5, -9, 4, 6, P.blade); b.add(-12, 3, 6, P.bladeL);
+                b.add(8, 7, -2, P.grip);
+            };
+
+            if (pose === 'vsign') {
+                armUp(-1); armLap(1); lapPaddle();
+                b.box(-6, 13, 0, -4, 14, 0, P.skin);                       // 손바닥
+                b.box(-6, 15, 0, -6, 16, 0, P.skin); b.box(-4, 15, 0, -4, 16, 0, P.skin);   // V 손가락
+            } else if (pose === 'thumb') {
+                armUp(1); armLap(-1); lapPaddle();
+                b.add(5, 15, 0, P.skin); b.add(5, 16, 0, P.skin);
+            } else if (pose === 'overhead') {
+                armUp(-1); armUp(1);
+                b.box(-11, 15, 0, 9, 15, 0, P.shaft);                     // 머리 위로 치켜든 패들
+                b.box(-14, 14, 0, -12, 16, 0, P.blade); b.add(-15, 15, 0, P.bladeL);
+                b.box(10, 14, 0, 10, 16, 0, P.grip);
+            } else {                                                      // 'paddle' — 조용히 노 젓기
+                armLap(-1); armLap(1); lapPaddle();
+            }
+        }
+
+        function rider(x, z, rotY, pose, opts) {
+            const b = new VoxelBuilder();
+            board(b, opts.rail);
+            seated(b, pose, opts);
+            const g = new THREE.Group();
+            g.add(buildVoxelMesh(THREE, b, { size: 0.96, roughness: 0.8, metalness: 0.05 }));
+            g.position.set(x, 0, z);
+            g.rotation.y = rotY;
+            g.userData = { x, z, rotY, phase: rng() * Math.PI * 2 };
+            scene.add(g);
+            return g;
+        }
+
+        // 서서 노 젓는 사람 (원경) — 패들은 별도 피벗으로 애니메이션
+        function standingPaddler(x, z, rotY) {
+            const b = new VoxelBuilder();
+            board(b, P.boardBlue);
+            b.box(-1, 1, -1, -1, 5, 0, P.shorts); b.box(1, 1, -1, 1, 5, 0, P.shorts);
+            b.box(-2, 6, -1, 2, 11, 1, P.yellow);
+            b.box(-2, 6, 2, 2, 11, 2, P.vest);
+            b.add(0, 12, 0, P.skinD);
+            b.box(-1, 13, -1, 1, 16, 1, P.skin);
+            b.box(-1, 13, -1, 1, 16, -1, P.hair); b.box(-1, 16, -1, 1, 16, 1, P.hair);
+            b.line(-2, 11, 0, -4, 8, 1, 0.9, P.yellow); b.line(2, 11, 0, 4, 7, 1, 0.9, P.yellow);
+            const g = new THREE.Group();
+            g.add(buildVoxelMesh(THREE, b, { size: 0.96, roughness: 0.8 }));
+            const pb = new VoxelBuilder();
+            pb.box(0, -7, 0, 0, 8, 0, P.shaft);
+            pb.box(-1, -10, 0, 1, -7, 0, P.blade);
+            pb.add(0, 9, 0, P.grip);
+            const paddle = new THREE.Group();
+            paddle.add(buildVoxelMesh(THREE, pb, { size: 0.96, roughness: 0.8 }));
+            paddle.position.set(4, 8, 1);
+            g.add(paddle);
+            g.position.set(x, 0, z);
+            g.rotation.y = rotY;
+            g.userData = { x, z, rotY, phase: rng() * Math.PI * 2, paddle };
+            scene.add(g);
+            return g;
+        }
+
+        const riders = [
+            rider(-17, 4, 0.18, 'vsign', { cap: { color: P.capBeige } }),
+            rider(-4, -3, -0.08, 'thumb', { cap: { color: P.capBlue, brim: P.capBrimB }, glasses: true }),
+            rider(13, 11, 0.06, 'overhead', { smile: true }),
+            rider(44, -46, -0.35, 'paddle', { hat: true }),
+            rider(56, -40, -0.2, 'paddle', { cap: { color: P.capBlue, brim: P.capBrimB } }),
+            standingPaddler(4, -36, 0.5),
+        ];
+
+        // ==========================================
+        // 4. 도시 스카이라인 · 산 · 방파제 · 배 (정적)
+        // ==========================================
+        const v = new VoxelBuilder();
+        const SHORE = -60;                                                 // 방파제 z
+
+        function seawall() {
+            v.box(-120, -2, SHORE - 3, 120, 1, SHORE, P.wall);
+            v.box(-120, 2, SHORE - 3, 120, 2, SHORE - 1, P.wallTop);
+            for (let x = -120; x <= 120; x++) {
+                if (x % 7 === 0) v.add(x, 2, SHORE, P.wallD);               // 난간 기둥
+                if (x % 3 === 0) v.add(x, 0, SHORE + 1, P.wallD);           // 테트라포드 느낌
+            }
+            v.box(-120, -3, SHORE - 4, 120, 0, -200, P.land);
+        }
+
+        function towers() {
+            // 왼쪽: 빽빽한 고층 아파트 (왼쪽일수록 높음)
+            let x = -112;
+            while (x < 22) {
+                const w = 4 + Math.floor(rng() * 4), dep = 4 + Math.floor(rng() * 3);
+                const tall = 11 + Math.floor(rng() * 9) + Math.max(0, Math.floor((-x - 20) / 10));
+                const z0 = SHORE - 8 - Math.floor(rng() * 18);
+                const c = pick(...P.tower);
+                v.box(x, 1, z0 - dep, x + w, tall, z0, c);
+                v.box(x, tall + 1, z0 - dep + 1, x + w - 1, tall + 1, z0 - 1, P.roof);   // 옥상
+                if (rng() < 0.5) v.box(x + 1, tall + 2, z0 - 2, x + 2, tall + 3, z0 - 1, P.towerD);   // 물탱크/엘리베이터실
+                for (let y = 2; y < tall; y += 2)
+                for (let xx = x + 1; xx < x + w; xx += 2)
+                    if (rng() < 0.35) v.add(xx, y, z0, P.win);               // 역광에 반짝이는 창
+                x += w + 1 + Math.floor(rng() * 3);
+            }
+            // 오른쪽: 낮고 드문 건물들 (해안 마을)
+            x = 28;
+            while (x < 125) {
+                const w = 3 + Math.floor(rng() * 4), dep = 3 + Math.floor(rng() * 3);
+                const tall = 3 + Math.floor(rng() * 6);
+                const z0 = SHORE - 6 - Math.floor(rng() * 14);
+                v.box(x, 1, z0 - dep, x + w, tall, z0, pick(...P.tower));
+                v.box(x, tall + 1, z0 - dep + 1, x + w - 1, tall + 1, z0 - 1, P.roof);
+                x += w + 2 + Math.floor(rng() * 5);
+            }
+        }
+
+        function mountains() {
+            for (let x = -125; x <= 125; x++) {
+                const bias = 0.35 + 0.65 * (0.5 + 0.5 * Math.tanh((x - 10) / 30));   // 오른쪽이 높은 산등성이
+                const ridge = (12 + Math.sin(x * 0.045 + 1.2) * 7 + Math.sin(x * 0.13 + 0.4) * 3 + Math.sin(x * 0.31) * 1.2) * bias;
+                for (let z = SHORE - 30; z >= SHORE - 95; z--) {
+                    const t = (SHORE - 30 - z) / 65;                        // 0(앞)…1(뒤)
+                    const h = Math.round(ridge * Math.sin(t * Math.PI) * 1.6 + 2);
+                    for (let y = 1; y <= h; y++)
+                        v.add(x, y, z, y === h ? (rng() < 0.3 ? P.mtnL : P.mtn) : (y % 4 === 0 ? P.mtnD : P.mtn));
+                }
+            }
+        }
+
+        function boats() {
+            // 왼쪽 방파제 앞 노란 작업선 + 크레인
+            v.box(-78, 0, -52, -66, 1, -48, P.boatY);
+            v.box(-76, 2, -51, -70, 4, -49, P.boatD);
+            v.box(-69, 2, -50, -69, 8, -50, P.boatY);
+            v.line(-69, 8, -50, -62, 4, -50, 0.5, P.boatY);
+            // 오른쪽 먼 바다의 작은 흰 배들
+            v.box(60, 0, -50, 66, 1, -48, P.boatW); v.box(62, 2, -49, 64, 2, -49, P.boatD);
+            v.box(76, 0, -44, 80, 1, -43, P.boatW);
+        }
+
+        seawall();
+        towers();
+        mountains();
+        boats();
+        scene.add(buildVoxelMesh(THREE, v, { size: 0.98, roughness: 0.9, metalness: 0.02, cast: false }));
+
+        // ==========================================
+        // 5. 살아 있는 바다 + 황금빛 윤슬 (InstancedMesh)
+        // ==========================================
+        const OX = 88, OZ0 = SHORE + 1, OZ1 = 60;
+        const oceanCells = [];
+        for (let x = -OX; x <= OX; x++)
+        for (let z = OZ0; z <= OZ1; z++) oceanCells.push([x, z]);
+        const ocean = new THREE.InstancedMesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0.2 }),
+            oceanCells.length);
+        ocean.receiveShadow = true;
+        ocean.castShadow = false;
+        ocean.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        scene.add(ocean);
+        const farSea = new THREE.Mesh(new THREE.PlaneGeometry(2400, 2400),
+            new THREE.MeshStandardMaterial({ color: 0x2e3d4b, roughness: 0.35, metalness: 0.2 }));
+        farSea.rotation.x = -Math.PI / 2;
+        farSea.position.y = -0.7;
+        scene.add(farSea);
+
+        const waveH = (x, z, t) =>
+            Math.sin(x * 0.21 + t * 1.2) * 0.42 +
+            Math.sin(z * 0.27 - t * 0.95) * 0.38 +
+            Math.sin((x - z) * 0.12 + t * 0.7) * 0.3;
+
+        const cDeep = new THREE.Color(0x2c3c4a), cMid = new THREE.Color(0x3d505e),
+              cCrest = new THREE.Color(0x65798a), cFar = new THREE.Color(0x8c7f72),
+              cSheen = new THREE.Color(0xb8956a), cGold = new THREE.Color(0xffc45e),
+              cGlint = new THREE.Color(0xfff0c2);
+        const tmpC = new THREE.Color();
+        const dummy = new THREE.Object3D();
+        const twinkle = oceanCells.map(() => rng() * Math.PI * 2);   // 셀마다 다른 반짝임 위상
+
+        function updateOcean(t) {
+            const cx = camera.position.x, cz = camera.position.z;
+            for (let i = 0; i < oceanCells.length; i++) {
+                const [x, z] = oceanCells[i];
+                const h = waveH(x, z, t);
+                dummy.position.set(x, h - 0.6, z);
+                dummy.updateMatrix();
+                ocean.setMatrixAt(i, dummy.matrix);
+
+                const k = (h + 1.1) / 2.2;
+                if (k < 0.5) tmpC.lerpColors(cDeep, cMid, k * 2);
+                else tmpC.lerpColors(cMid, cCrest, (k - 0.5) * 2);
+                const dx = x - cx, dz = z - cz, dist = Math.hypot(dx, dz);
+                tmpC.lerp(cFar, Math.min(1, Math.max(0, (dist - 40) / 110)) * 0.6);   // 멀수록 노을빛 머금은 수면
+
+                // 카메라에서 해 방위를 향한 띠 = 윤슬 (sun glitter path)
+                let da = Math.atan2(dx, -dz) - SUN_AZ;
+                da = Math.abs(da);
+                if (da < 0.26) {
+                    tmpC.lerp(cSheen, (1 - da / 0.26) * 0.55);
+                    if (da < 0.1) {
+                        const s = Math.sin(t * 4.6 + twinkle[i]) * 0.55 + Math.sin(x * 1.9 + z * 1.3 + t * 5.2) * Math.sin(z * 2.3 - x * 0.7 - t * 3.6) * 0.45;
+                        const th = 0.78 - Math.min(0.7, dist / 150);           // 멀수록 촘촘히 반짝임
+                        if (s > th) tmpC.lerp(s > th + 0.12 ? cGlint : cGold, 0.95);
+                    }
+                }
+                ocean.setColorAt(i, tmpC);
+            }
+            ocean.instanceMatrix.needsUpdate = true;
+            ocean.instanceColor.needsUpdate = true;
+        }
+
+        // ==========================================
+        // 6. 하늘 돔 · 해 · 수평선 광채
+        // ==========================================
+        const skyMat = new THREE.ShaderMaterial({
+            side: THREE.BackSide, depthWrite: false, fog: false,
+            uniforms: {
+                sunDir: { value: sunDir },
+                cTop: { value: new THREE.Color(0xb3c2d0) },
+                cMid: { value: new THREE.Color(0xdcc9ad) },
+                cHor: { value: new THREE.Color(0xf4c384) },
+                cSun: { value: new THREE.Color(0xffd79a) },
+            },
+            vertexShader: `
+                varying vec3 vDir;
+                void main() {
+                    vDir = normalize(position);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }`,
+            fragmentShader: `
+                uniform vec3 sunDir, cTop, cMid, cHor, cSun;
+                varying vec3 vDir;
+                void main() {
+                    vec3 dd = normalize(vDir);
+                    float h = max(dd.y, 0.0);
+                    vec3 col = mix(cHor, cMid, smoothstep(0.0, 0.16, h));
+                    col = mix(col, cTop, smoothstep(0.12, 0.65, h));
+                    float s = max(dot(dd, sunDir), 0.0);
+                    col += cSun * (pow(s, 5.0) * 0.5 + pow(s, 50.0) * 0.8 + pow(s, 700.0) * 1.6);
+                    gl_FragColor = vec4(col, 1.0);
+                }`,
+        });
+        const skyDome = new THREE.Mesh(new THREE.SphereGeometry(1100, 48, 24), skyMat);
+        scene.add(skyDome);
+
+        const sunPos = sunDir.clone().multiplyScalar(1000);
+        const sunCore = glow(0xfff6dc, 70, 70, 1);
+        sunCore.position.copy(sunPos);
+        scene.add(sunCore);
+        const sunHalo = glow(0xffc272, 420, 420, 0.42);
+        sunHalo.position.copy(sunPos);
+        scene.add(sunHalo);
+        // 수평선에 깔리는 황금빛 번짐 (해 바로 아래 바다)
+        const horizonGlow = glow(0xffc880, 150, 26, 0.6);
+        scene.add(horizonGlow);
+        function placeHorizonGlow() {                                      // 카메라에서 해 방위로 방파제까지
+            const D = (camera.position.z - SHORE) / Math.cos(SUN_AZ);
+            horizonGlow.position.set(camera.position.x + Math.sin(SUN_AZ) * D, 2, SHORE + 1);
+        }
+
+        // ==========================================
+        // 7. 저녁 갈매기
+        // ==========================================
+        const gulls = [];
+        const gullMat = new THREE.MeshStandardMaterial({ color: P.gull, roughness: 0.9 });
+        for (let i = 0; i < 5; i++) {
+            const g = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 0.7), gullMat);
+            g.add(body);
+            const wl = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.25, 0.8), gullMat);
+            wl.geometry.translate(-1.3, 0, 0);
+            const wr = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.25, 0.8), gullMat);
+            wr.geometry.translate(1.3, 0, 0);
+            g.add(wl, wr);
+            g.userData = { wl, wr, r: 55 + rng() * 40, y: 22 + rng() * 16, sp: 0.05 + rng() * 0.04, ph: rng() * Math.PI * 2, fl: 5 + rng() * 3 };
+            scene.add(g);
+            gulls.push(g);
+        }
+
+        // ==========================================
+        // 8. 시작 & 루프
+        // ==========================================
+        setTimeout(() => {
+            const l = document.getElementById('loader');
+            l.style.opacity = '0';
+            l.style.visibility = 'hidden';
+        }, 250);
+
+        const clock = new THREE.Clock();
+        function bob(g, t, amp = 1) {
+            const { x, z, rotY, phase } = g.userData;
+            const h = waveH(x, z, t);
+            g.position.y = h + 0.55;
+            g.rotation.y = rotY + Math.sin(t * 0.35 + phase) * 0.05;
+            g.rotation.z = (waveH(x + 3, z, t) - waveH(x - 3, z, t)) * 0.07 * amp;
+            g.rotation.x = (waveH(x, z + 3, t) - waveH(x, z - 3, t)) * 0.06 * amp;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+
+            updateOcean(t);
+            for (const g of riders) {
+                bob(g, t);
+                if (g.userData.paddle) {                                   // 서서 노 젓기
+                    const p = g.userData.paddle;
+                    p.rotation.z = -0.35 + Math.sin(t * 1.6) * 0.3;
+                    p.rotation.x = Math.sin(t * 1.6 + 1.3) * 0.25;
+                }
+            }
+            // 가운데 주인공: 치켜든 패들을 살짝 흔들며 환호
+            riders[2].rotation.z += Math.sin(t * 2.1) * 0.025;
+
+            sunCore.material.opacity = 0.92 + Math.sin(t * 1.7) * 0.06;
+            horizonGlow.material.opacity = 0.55 + Math.sin(t * 2.3) * 0.08;
+            placeHorizonGlow();
+
+            for (const g of gulls) {
+                const u = g.userData;
+                const a = t * u.sp + u.ph;
+                g.position.set(Math.cos(a) * u.r, u.y + Math.sin(t * 0.5 + u.ph) * 2, -30 + Math.sin(a) * 36);
+                g.rotation.y = -a + Math.PI / 2;
+                const f = Math.sin(t * u.fl + u.ph) * 0.55;
+                u.wl.rotation.z = f; u.wr.rotation.z = -f;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
